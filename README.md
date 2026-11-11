@@ -7,7 +7,7 @@ Browse the web together with friends: one person shares a browser tab, everyone 
 ## How to use
 
 1. Open the link, type your name and click **Start a room**.
-2. Click the room code at the top to copy an invite link, and send it to your friends.
+2. Click the room code at the top to copy an invite link, and send it to your friends. When someone opens it, a card asks you to **Let in** or **Decline** them. Click **×** on someone's name to remove them later.
 3. Click **Share my tab** and pick the browser tab everyone should see. In Chrome or Edge, choose the "Tab" option and tick "Share tab audio".
 
 Everyone can chat, point, **Draw**, and **Add sticker** (or paste an image or image link with Ctrl+V, or drop one onto the view).

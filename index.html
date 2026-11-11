@@ -104,6 +104,16 @@ a{color:var(--peri)}
 .tools{display:flex;align-items:center;gap:6px;margin-left:auto}
 #drawTools{display:flex;align-items:center;gap:6px;padding-left:8px;margin-left:2px;border-left:1px solid var(--line)}
 .pen{width:var(--s,8px);height:var(--s,8px);border-radius:50%;background:currentColor;flex:none}
+/* Join requests (host) */
+#requests{position:absolute;top:12px;right:12px;z-index:10;display:flex;flex-direction:column;gap:8px;max-width:min(360px,calc(100% - 24px))}
+.req{display:flex;align-items:center;gap:10px;padding:10px 10px 10px 14px;background:var(--panel);border:1px solid var(--gold);border-radius:var(--r-md);box-shadow:0 8px 28px #0008}
+.req .who{flex:1;min-width:0;overflow-wrap:anywhere}
+.req .btn{height:32px;padding:0 11px;font-size:13px}
+.chip .kick{width:20px;height:20px;margin:0 -5px 0 -2px;padding:0;border:0;border-radius:50%;background:transparent;color:var(--faint);font-size:16px;line-height:1;cursor:pointer}
+.chip .kick:hover{background:var(--raise);color:var(--text)}
+.chip .kick:focus-visible{outline:2px solid var(--peri)}
+#cancelJoin{margin-top:6px;height:34px;font-size:13.5px}
+
 /* Volume */
 .vol{display:flex;align-items:center;gap:2px}
 #volSlider{width:110px;height:20px;margin:0 6px 0 0;accent-color:var(--gold);cursor:pointer;background:transparent}
@@ -209,6 +219,7 @@ aside{grid-column:2;grid-row:2/5;min-height:0;min-width:0;display:flex;flex-dire
       <button class="btn" id="joinBtn">Join</button>
     </div>
     <div id="status" role="status"></div>
+    <button class="btn quiet" id="cancelJoin" hidden>Cancel</button>
     <p class="lobby-note">
       Want friends to click and type in the tab you share?
       <a href="https://raw.githubusercontent.com/4kGoat/browse-together/main/browse-together-control.user.js" target="_blank" rel="noopener">Set up tab control</a>
@@ -279,6 +290,7 @@ aside{grid-column:2;grid-row:2/5;min-height:0;min-width:0;display:flex;flex-dire
     <div id="overlay"></div>
     <div id="stickers"></div>
     <canvas id="draw"></canvas>
+    <div id="requests" aria-live="polite"></div>
     <button class="btn primary" id="unmute" hidden><svg class="ic"><use href="#i-sound"/></svg>Turn on sound</button>
   </div>
 
@@ -339,6 +351,7 @@ $('#joinBtn').onclick = () => {
   if (!window.Peer) return setStatus('Couldn\'t connect. Check your internet and reload the page.');
   lobbyBusy(true); startGuest(c);
 };
+$('#cancelJoin').onclick = () => location.reload();
 $('#code').addEventListener('keydown', e => { if (e.key === 'Enter') $('#joinBtn').click(); });
 
 function handleErr(e){
@@ -358,10 +371,11 @@ function startHost(code){
     sys('Room ' + code + ' is ready. Click the code at the top to copy an invite link.');
   });
   peer.on('connection', conn => {
-    conn.on('open', () => conns.set(conn.peer, conn));
+    // New connections wait here, seeing nothing, until the host lets them in.
+    conn.on('open', () => joinRequests.set(conn.peer, { conn, name:'' }));
     conn.on('data', d => onData(d, conn.peer));
-    conn.on('close', () => dropPerson(conn.peer));
-    conn.on('error', () => dropPerson(conn.peer));
+    conn.on('close', () => { cancelRequest(conn.peer); dropPerson(conn.peer); });
+    conn.on('error', () => { cancelRequest(conn.peer); dropPerson(conn.peer); });
   });
   peer.on('call', answerCall);
   peer.on('error', e => {
@@ -373,6 +387,57 @@ function freeColor(){
   const used = Object.values(people).map(p => p.color);
   return COLORS.find(c => !used.includes(c)) || COLORS[Math.random()*COLORS.length|0];
 }
+// ---------- join requests (host) ----------
+const joinRequests = new Map();   // peerId -> { conn, name }
+function askToJoin(id, name){
+  const p = joinRequests.get(id);
+  if (!p || p.name) return;          // one request per connection
+  p.name = name;
+  const card = document.createElement('div'); card.className = 'req'; card.dataset.id = id;
+  const who = document.createElement('span'); who.className = 'who';
+  const b = document.createElement('b'); b.textContent = name;
+  who.append(b, document.createTextNode(' wants to join'));
+  const yes = document.createElement('button'); yes.className = 'btn primary'; yes.textContent = 'Let in';
+  const no = document.createElement('button'); no.className = 'btn'; no.textContent = 'Decline';
+  yes.onclick = () => admit(id);
+  no.onclick = () => decline(id);
+  card.append(who, yes, no);
+  $('#requests').append(card);
+  sys(name + ' is asking to join.');
+}
+function removeRequestCard(id){
+  const card = [...$('#requests').children].find(c => c.dataset.id === id);
+  if (card) card.remove();
+}
+function admit(id){
+  const p = joinRequests.get(id); if (!p || !p.conn.open) return cancelRequest(id);
+  joinRequests.delete(id); removeRequestCard(id);
+  conns.set(id, p.conn);
+  people[id] = { id, name:p.name || 'Player', color:freeColor() };
+  p.conn.send({ type:'welcome', people, mode, url:curUrl, sharer, control, strokes, stickers:stickerList(), tabInfo, from:myId });
+  const m = { type:'people', people, joined:id, sharer, from:myId };
+  apply(m); relay(m, id);
+}
+function decline(id){
+  const p = joinRequests.get(id); if (!p) return;
+  joinRequests.delete(id); removeRequestCard(id);
+  try { p.conn.send({ type:'denied' }); } catch(e){}
+  setTimeout(() => { try { p.conn.close(); } catch(e){} }, 400);
+  sys('You declined ' + (p.name || 'a request') + '.');
+}
+function cancelRequest(id){
+  const p = joinRequests.get(id); if (!p) return;
+  joinRequests.delete(id); removeRequestCard(id);
+  if (p.name) sys(p.name + ' stopped waiting.');
+}
+function removePerson(id){
+  const p = people[id]; if (!p || id === myId) return;
+  if (!confirm('Remove ' + p.name + ' from the room?')) return;
+  const c = conns.get(id);
+  if (c){ try { c.send({ type:'removed' }); } catch(e){} setTimeout(() => { try { c.close(); } catch(e){} }, 400); }
+  dropPerson(id);
+}
+
 function dropPerson(id){
   conns.delete(id);
   if (!people[id]) return;
@@ -390,9 +455,32 @@ function startGuest(code){
   peer.on('open', id => {
     myId = id;
     hostConn = peer.connect(PREFIX + code, { reliable:true });
-    hostConn.on('open', () => { hostConn.send({ type:'hello', name: myName() }); enterRoom(code); });
-    hostConn.on('data', d => onData(d, PREFIX + code));
-    hostConn.on('close', () => { alert('The host left, so this room has closed.'); location.reload(); });
+    let leaving = false;
+    hostConn.on('open', () => {
+      hostConn.send({ type:'hello', name: myName() });
+      setStatus('Waiting for the host to let you in…');
+      $('#cancelJoin').hidden = false;
+    });
+    hostConn.on('data', d => {
+      if (!d || typeof d !== 'object') return;
+      if (!roomCode){
+        if (d.type === 'welcome'){ $('#cancelJoin').hidden = true; setStatus(''); enterRoom(code); onData(d, PREFIX + code); }
+        else if (d.type === 'denied'){
+          leaving = true; $('#cancelJoin').hidden = true;
+          setStatus('The host didn\'t let you in.');
+          try { peer.destroy(); } catch(e){}
+          lobbyBusy(false);
+        }
+        return;
+      }
+      if (d.type === 'removed'){ leaving = true; alert('The host removed you from the room.'); location.reload(); return; }
+      onData(d, PREFIX + code);
+    });
+    hostConn.on('close', () => {
+      if (leaving) return;
+      if (!roomCode){ $('#cancelJoin').hidden = true; setStatus('The room closed before you were let in.'); lobbyBusy(false); return; }
+      alert('The host left, so this room has closed.'); location.reload();
+    });
   });
   peer.on('call', answerCall);
   peer.on('error', e => { if (!roomCode) handleErr(e); });
@@ -461,18 +549,13 @@ function relay(msg, except){
 function onData(msg, fromPeer){
   if (!msg || typeof msg !== 'object') return;
   if (isHost){
-    if (msg.type === 'hello'){
-      const kind = msg.kind === 'tab' ? 'tab' : 'person';
-      people[fromPeer] = { id:fromPeer, kind, name:String(msg.name || 'Player').slice(0,40), color: kind === 'tab' ? '#8fa3b8' : freeColor() };
-      const c = conns.get(fromPeer);
-      if (c && kind !== 'tab') c.send({ type:'welcome', people, mode, url:curUrl, sharer, control, strokes, stickers:stickerList(), tabInfo, from:myId });
-      else if (c) c.send({ type:'welcome', people, mode, sharer, control, from:myId });
-      const m = { type:'people', people, joined:fromPeer, sharer, from:myId };
-      apply(m); relay(m, fromPeer);
+    // Someone not let in yet can only ask to join; everything else is ignored.
+    if (!people[fromPeer]){
+      if (msg.type === 'hello') askToJoin(fromPeer, String(msg.name || 'Player').slice(0, 20));
       return;
     }
+    if (msg.type === 'hello') return;
     msg.from = fromPeer;          // never trust a claimed sender
-    if (!people[fromPeer]) return;
     if (people[fromPeer].kind === 'tab') return;              // controlled tabs only listen
     if (msg.type === 'control') return;                       // only the host decides this
     if (msg.type === 'input'){ if (control) routeInput(msg); return; }
@@ -510,7 +593,7 @@ function apply(msg){
     case 'chat': addChat(msg.from, String(msg.text || '').slice(0,400)); break;
     case 'mode': setMode(msg.mode); break;
     case 'url': {
-      const u = safeUrl(msg.url); if (!u) break;
+      const u = safeUrl(msg.url); if (!u || sameSiteAsRoom(u)) break;
       loadUrl(u);
       if (msg.from !== myId) sys(nameOf(msg.from) + ' opened ' + u);
       break;
@@ -590,6 +673,12 @@ function renderPeople(){
     if (p.id.startsWith(PREFIX)) tag('host', '', 'Started the room');
     if (p.id === sharer) tag('sharing', 'live', 'Their tab is on screen');
     if (p.bridge) tag('tab control', '', 'Has tab control set up');
+    if (isHost && p.id !== myId){
+      const x = document.createElement('button'); x.className = 'kick'; x.textContent = '×';
+      x.title = 'Remove ' + p.name + ' from the room'; x.setAttribute('aria-label', x.title);
+      x.onclick = () => removePerson(p.id);
+      chip.append(x);
+    }
     box.append(chip);
   }
 }
@@ -770,12 +859,19 @@ function normalize(input){
   if (yt) u = 'https://www.youtube.com/embed/' + yt[1] + '?autoplay=1';
   return safeUrl(u);
 }
+// A page from this same site, loaded in the embed, could reach into the room
+// page itself, so those are refused.
+function sameSiteAsRoom(u){
+  try { return location.origin !== 'null' && new URL(u).origin === location.origin; } catch(e){ return false; }
+}
 function loadUrl(u){
+  if (sameSiteAsRoom(u)) return;
   curUrl = u; frame.src = u; $('#urlInput').value = u; updatePlaceholder();
 }
 $('#urlForm').onsubmit = e => {
   e.preventDefault();
   const u = normalize($('#urlInput').value);
+  if (u && sameSiteAsRoom(u)) return sys('Pages from this site can\'t be loaded in the room. Share a tab instead.');
   if (u) send({ type:'url', url:u });
 };
 $('#pointBtn').onclick = () => {
