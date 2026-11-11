@@ -505,22 +505,21 @@ function startGuest(code){
 function send(msg){
   msg.from = myId;
   if (msg.type === 'input'){
-    if (isHost) routeInput(msg);                    // the host can always control
-    else if (hasBridge) forwardToBridge(msg, true); // my own tab, straight through
-    else if (hostConn && hostConn.open) hostConn.send(msg);
+    if (sharer === myId) forwardToBridge(msg, true);           // my own shared tab
+    else if (isHost) routeInput(msg);                          // host: straight to the sharer
+    else if (hostConn && hostConn.open) hostConn.send(msg);    // guest: via the host
     return;
   }
   apply(msg);
   if (isHost) relay(msg, null);
   else if (hostConn && hostConn.open) hostConn.send(msg);
 }
-// Input goes to whoever in the room has the Tampermonkey script running on their room page.
+// Clicks, scrolling and typing go only to the person whose tab is on screen.
+// Their browser checks again that the sender is allowed before passing it on.
 function routeInput(msg){
-  for (const id in people){
-    if (!people[id].bridge) continue;
-    if (id === myId) forwardToBridge(msg, true);
-    else { const c = conns.get(id); if (c && c.open) c.send(msg); }
-  }
+  if (!sharer) return;
+  if (sharer === myId){ forwardToBridge(msg, mayControl(msg.from)); return; }
+  const c = conns.get(sharer); if (c && c.open) c.send(msg);
 }
 function olderThan(a, b){
   const x = String(a).split('.').map(Number), y = String(b).split('.').map(Number);
@@ -586,6 +585,7 @@ function apply(msg){
   switch (msg.type){
     case 'welcome':
       people = msg.people || {}; sharer = msg.sharer || null; control = !!msg.control;
+      if (hasBridge && people[myId]) people[myId].bridge = true;   // announced just before this arrived
       setStrokes(Array.isArray(msg.strokes) ? msg.strokes : []);
       setStickers(Array.isArray(msg.stickers) ? msg.stickers : []);
       if (msg.tabInfo) showTabInfo(msg.tabInfo);
@@ -625,7 +625,7 @@ function apply(msg){
         if (sharer === msg.from) sharer = null;
         if (msg.from !== myId){ clearTimeout(videoTimer); videoFailed = false; clearVideo(); sys(nameOf(msg.from) + ' stopped sharing.'); }
       }
-      renderPeople(); updateShareUI();
+      renderPeople(); updateControlUI();
       break;
     case 'needstream':
       if (msg.to === myId && msg.from !== myId && localStream && people[msg.from]){
@@ -635,9 +635,11 @@ function apply(msg){
       break;
     case 'ptr':
       if (msg.from !== myId) drawPointer(msg);
-      if (msg.mode === 'screen' && !msg.hide) forwardToBridge(msg, mayControl(msg.from));
+      if (sharer === myId && msg.mode === 'screen' && !msg.hide) forwardToBridge(msg, mayControl(msg.from));
       break;
-    case 'input': forwardToBridge(msg, mayControl(msg.from)); break;
+    case 'input':
+      if (sharer === myId) forwardToBridge(msg, mayControl(msg.from));
+      break;
     case 'bridge':
       if (people[msg.from]) people[msg.from].bridge = !!msg.on;
       renderPeople(); updateShareUI();
@@ -675,12 +677,18 @@ function enterRoom(code){
   if (hasBridge) send({ type:'bridge', on:true });
 }
 function isTab(id){ return !!(people[id] && people[id].kind === 'tab'); }
-function hasTab(){ return Object.values(people).some(p => p.bridge || p.kind === 'tab'); }
+// Can the tab on screen be controlled? Only if the person sharing it has tab control.
+function hasTab(){
+  if (!sharer) return false;
+  if (sharer === myId) return hasBridge;            // my own page always knows
+  return !!(people[sharer] && people[sharer].bridge);
+}
+function iCanControl(){ return control || isHost || sharer === myId; }
 function updateControlUI(){
   const b = $('#controlBtn');
   b.hidden = !isHost;
   b.setAttribute('aria-checked', String(control));
-  overlay.classList.toggle('ctl', control || isHost || hasBridge);
+  overlay.classList.toggle('ctl', iCanControl());
   pushBridgeState();
   updateShareUI();
 }
@@ -782,9 +790,12 @@ function updateShareUI(){
   else if (sharer) notes.push(['', nameOf(sharer) + ' is sharing. Click the view to point at things.']);
   if (hasTab()){
     if (control) notes.push(['', 'Everyone can click, scroll and type in the shared tab.']);
-    else if (isHost) notes.push(['', 'Only you can control the shared tab.']);
-  } else if (control){
-    notes.push(['warn', 'Friends can control, but nobody has tab control set up yet.']);
+    else if (sharer === myId && isHost) notes.push(['', 'Only you can control your tab. Turn on Let friends control to share it.']);
+    else if (sharer === myId) notes.push(['', 'You and the host can control your tab.']);
+    else if (isHost) notes.push(['', 'You and ' + nameOf(sharer) + ' can control the shared tab.']);
+    else notes.push(['', 'Only the host and ' + nameOf(sharer) + ' can control the shared tab right now.']);
+  } else if (sharer && control){
+    notes.push(['warn', nameOf(sharer) + ' doesn\'t have tab control connected, so friends can only watch and point.']);
   }
   if (hasBridge && !scriptOutdated()) notes.push(['ok', 'Tab control ready (v' + bridgeVersion + ')']);
   const bar = $('#shareInfo'); bar.textContent = '';
@@ -1039,7 +1050,7 @@ overlay.addEventListener('pointerdown', e => { sendPtr(e, true); spawnRipple(e.c
 overlay.addEventListener('pointerleave', () => send({ type:'ptr', hide:true, mode }));
 
 // ---------- switching the site in the controlled tab ----------
-function canNavigate(){ return hasTab() && (control || isHost || hasBridge); }
+function canNavigate(){ return hasTab() && iCanControl(); }
 function navUrl(input){
   let u = input.trim(); if (!u) return '';
   if (!/^https?:\/\//i.test(u)){
@@ -1071,7 +1082,7 @@ $('#navReload').onclick = () => canNavigate() && send({ type:'input', t:'reload'
 
 // ---------- guest control (sent to the tab running the userscript) ----------
 overlay.tabIndex = 0;
-function canControl(){ return (control || isHost || hasBridge) && mode === 'screen' && !!video.srcObject && hasTab(); }
+function canControl(){ return iCanControl() && mode === 'screen' && !!video.srcObject && hasTab(); }
 function normPos(e, clamp){
   const r = contentRect();
   let x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
