@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Browse Together – Tab Control
 // @namespace    browse-together
-// @version      2.4.0
+// @version      2.4.1
 // @homepageURL  https://github.com/4kGoat/browse-together
 // @updateURL    https://raw.githubusercontent.com/4kGoat/browse-together/main/browse-together-control.user.js
 // @downloadURL  https://raw.githubusercontent.com/4kGoat/browse-together/main/browse-together-control.user.js
@@ -59,6 +59,7 @@ declare function GM_addValueChangeListener(
   let badgeHost: HTMLDivElement | null = null;
   let badgeBox: HTMLDivElement | null = null;
   let badgeText: HTMLSpanElement | null = null;
+  let useBtn: HTMLButtonElement | null = null;
 
   function ensureBadge(): void {
     if (badgeHost) return;
@@ -72,13 +73,16 @@ declare function GM_addValueChangeListener(
          box-shadow:0 4px 16px #0006}
       .d{width:8px;height:8px;border-radius:50%;background:#ffd93d}
       .on .d{background:#6bcb77} .err .d{background:#ff6b6b}
+      button[hidden]{display:none}
       button{font:inherit;background:#2a3a4c;color:inherit;border:0;border-radius:6px;padding:3px 8px;cursor:pointer}`;
     badgeBox = document.createElement('div');
     const dot = document.createElement('span'); dot.className = 'd';
     badgeText = document.createElement('span');
+    useBtn = document.createElement('button'); useBtn.textContent = 'Use this tab'; useBtn.hidden = true;
+    useBtn.addEventListener('click', () => choose());
     const stopBtn = document.createElement('button'); stopBtn.textContent = 'Stop';
     stopBtn.addEventListener('click', stop);
-    badgeBox.append(dot, badgeText, stopBtn);
+    badgeBox.append(dot, badgeText, useBtn, stopBtn);
     root.append(style, badgeBox);
     document.documentElement.appendChild(badgeHost);
   }
@@ -86,17 +90,18 @@ declare function GM_addValueChangeListener(
     ensureBadge();
     badgeText!.textContent = text;
     badgeBox!.className = 'b ' + state;
+    useBtn!.hidden = !(myToken && !active);
   }
   function refreshBadge(): void {
     if (!myToken) { removeBadge(); return; }
-    if (!active) setBadge('Another tab is now the controlled tab', 'err');
+    if (!active) setBadge('Another tab is the controlled tab', 'err');
     else if (!live()) setBadge('Waiting for your Browse Together room page…', 'wait');
     else if (control) setBadge('🎮 Friends can control this tab · room ' + room, 'on');
     else setBadge('🎮 The host can control this tab · room ' + room, 'on');
   }
   function removeBadge(): void {
     badgeHost?.remove();
-    badgeHost = badgeBox = badgeText = null;
+    badgeHost = badgeBox = badgeText = useBtn = null;
   }
 
   // ------------------------------------------------- room page → this tab
@@ -492,10 +497,11 @@ declare function GM_addValueChangeListener(
   let lastReported = '';
   function reportTab(): void {
     if (!myToken || !active) return;
-    const info = location.href + '\n' + document.title;
+    const title = String(document.title || '');
+    const info = location.href + '\n' + title;
     if (info === lastReported) return;
     lastReported = info;
-    GM_setValue('bt-tabinfo', { url: location.href, title: document.title.slice(0, 200), t: Date.now() });
+    GM_setValue('bt-tabinfo', { url: location.href, title: title.slice(0, 200), t: Date.now() });
   }
 
   function choose(): void {
@@ -555,7 +561,7 @@ declare function GM_addValueChangeListener(
       window.postMessage({ bt: 'tabinfo', key, url: String(info.url || ''), title: String(info.title || '') }, '*');
     };
     const ready = () => {
-      window.postMessage({ bt: 'bridge-ready', key, version: GM_info.script.version }, '*');
+      window.postMessage({ bt: 'bridge-ready', key, version: typeof GM_info !== 'undefined' ? GM_info.script.version : '' }, '*');
       setTimeout(() => sendTabInfo(GM_getValue<unknown>('bt-tabinfo', null)), 50);
     };
     GM_addValueChangeListener('bt-tabinfo', (_n, _o, v) => sendTabInfo(v));
@@ -583,6 +589,12 @@ declare function GM_addValueChangeListener(
     ready();
   }
 
+  // Chrome loads some pages invisibly in the background (e.g. Google's search
+  // "warmup" page, or pages it pre-renders). They must never become the controlled tab.
+  const isHelperPage =
+    /(^|\.)google\.[a-z.]+$/.test(location.hostname) && location.pathname === '/search/warmup.html';
+  if (isHelperPage) return;
+
   // Menu items are registered first, on every page, so they always show up.
   if (isRoomPage) {
     GM_registerMenuCommand('ℹ️ This is your room page: open the tab to share and pick it there', () => {
@@ -594,7 +606,10 @@ declare function GM_addValueChangeListener(
   }
   try {
     if (isRoomPage) startBridge();
-    else startTarget();
+    else if ((document as Document & { prerendering?: boolean }).prerendering) {
+      // Wait until Chrome actually shows this page.
+      document.addEventListener('prerenderingchange', () => startTarget(), { once: true });
+    } else startTarget();
   } catch (err) {
     console.error('[Browse Together] failed to start', err);
   }

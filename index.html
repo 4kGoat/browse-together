@@ -205,6 +205,7 @@ const conns = new Map();   // host only: peerId -> DataConnection
 const calls = new Map();   // sharer only: peerId -> MediaConnection
 let myId, people = {}, sharer = null, localStream = null;
 let mode = 'screen', curUrl = '', pointMode = false, control = false, hasBridge = false, bridgeKey = '', tabInfo = null, bridgeVersion = '';
+const bridgeKeys = new Set();   // more than one = the script is installed twice
 const NEEDED_SCRIPT = '2.4.0';
 
 const video = $('#video'), frame = $('#frame'), overlay = $('#overlay');
@@ -344,6 +345,8 @@ window.addEventListener('message', e => {
   if ((e.source && e.source !== window) || !e.data || e.data.bt !== 'bridge-ready') return;
   if (typeof e.data.key !== 'string' || !e.data.key) return;
   const first = !hasBridge;
+  bridgeKeys.add(e.data.key);
+  if (bridgeKeys.size === 2) sys('⚠️ The control script is installed more than once in Tampermonkey. Open the Tampermonkey dashboard, delete the extra copies, then reload this page and the shared tab.');
   bridgeKey = e.data.key; hasBridge = true;
   bridgeVersion = typeof e.data.version === 'string' ? e.data.version.slice(0, 20) : '';
   pushBridgeState();
@@ -530,6 +533,7 @@ function updateShareUI(){
   let info = sharer
     ? (sharer === myId ? 'Everyone sees what you share. Their pointers appear on your preview here.' : nameOf(sharer) + ' is sharing. Click on the picture to point things out.')
     : '';
+  if (bridgeKeys.size > 1) info = '⚠️ Control script installed twice: delete the extra copy in Tampermonkey. ' + info;
   if (scriptOutdated()) info = '⚠️ Your control script is outdated, so opening sites won\'t work. Click "Update control script". ' + info;
   else if (hasBridge) info += ' ✅ Control script v' + bridgeVersion + ' found.';
   $('#scriptLink').hidden = hasBridge && !scriptOutdated();
