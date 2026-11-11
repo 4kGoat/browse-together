@@ -273,6 +273,7 @@ aside{grid-column:2;grid-row:2/5;min-height:0;min-width:0;display:flex;flex-dire
     </form>
     <div class="tools">
       <button class="btn" id="stickerBtn" title="Add an image for everyone. You can also paste an image or image link (Ctrl+V), or drop one onto the view."><svg class="ic"><use href="#i-image"/></svg><span class="lbl">Add sticker</span></button>
+      <button class="btn" id="clearStickersBtn" hidden title="Remove all stickers for everyone"><svg class="ic"><use href="#i-trash"/></svg><span class="lbl">Clear stickers</span></button>
       <input type="file" id="stickerFile" accept="image/*" hidden>
       <button class="btn" id="drawBtn" title="Draw on top of what everyone sees"><svg class="ic"><use href="#i-pen"/></svg><span class="lbl">Draw</span></button>
       <div id="drawTools" hidden>
@@ -651,6 +652,14 @@ function apply(msg){
       break;
     case 'stk': updateSticker(msg); break;
     case 'stkDel': removeSticker(String(msg.id)); break;
+    case 'stkClear': {
+      const m = msg.mode === 'page' ? 'page' : 'screen';
+      const ids = [...stickers.values()].filter(st => st.mode === m).map(st => st.id);
+      if (!ids.length) break;
+      ids.forEach(removeSticker);
+      sys(nameOf(msg.from) + ' removed all stickers.');
+      break;
+    }
     case 'unstroke': {
       const st = strokeMap.get(String(msg.id));
       if (st && st.from === msg.from){ setStrokes(strokes.filter(x => x !== st)); }
@@ -1309,6 +1318,7 @@ function createSticker(m){
   stickers.set(id, st);
   while (stickers.size > MAX_STICKERS) removeSticker(stickers.keys().next().value);
   layoutSticker(st);
+  updateStickerButton();
 }
 function updateSticker(m){
   const st = stickers.get(String(m.id)); if (!st) return;
@@ -1320,6 +1330,7 @@ function removeSticker(id){
   st.el.remove(); stickers.delete(id);
   if (selectedSticker === id) selectedSticker = null;
   if (gesture && gesture.st === st) gesture = null;
+  updateStickerButton();
 }
 function setStickers(list){
   for (const id of [...stickers.keys()]) removeSticker(id);
@@ -1361,7 +1372,13 @@ function layoutSticker(st){
   st.el.style.zIndex = st.z;
   st.el.classList.toggle('sel', selectedSticker === st.id);
 }
-function layoutStickers(){ for (const st of stickers.values()) layoutSticker(st); }
+function layoutStickers(){ for (const st of stickers.values()) layoutSticker(st); updateStickerButton(); }
+// "Clear stickers" only shows when there's something to clear in this view.
+function updateStickerButton(){
+  const btn = $('#clearStickersBtn'); if (!btn) return;
+  btn.hidden = ![...stickers.values()].some(st => st.mode === mode);
+}
+$('#clearStickersBtn').onclick = () => send({ type:'stkClear', mode });
 function selectSticker(st){ selectedSticker = st ? st.id : null; layoutStickers(); }
 
 // dragging, rotating, resizing
