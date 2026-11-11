@@ -1,0 +1,1086 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="browse-together" content="1">
+<title>Browse Together</title>
+<style>
+:root{
+  --bg:#0e141c; --panel:#16202b; --panel2:#1d2a38; --line:#2a3a4c;
+  --text:#e6eef6; --muted:#8fa3b8; --accent:#6cc4ff; --accent2:#3a8fd0; --danger:#ff6b6b;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:15px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+button,input{font:inherit;color:inherit}
+button{background:var(--accent2);border:0;border-radius:8px;padding:8px 14px;cursor:pointer;font-weight:600}
+button:hover{filter:brightness(1.12)}
+button.ghost{background:var(--panel2);border:1px solid var(--line)}
+button.on{background:var(--accent);color:#06121e}
+button:disabled{opacity:.45;cursor:not-allowed}
+input{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;outline:none;min-width:0}
+input:focus{border-color:var(--accent)}
+[hidden]{display:none!important}
+
+/* Lobby */
+#lobby{min-height:100%;display:flex;align-items:center;justify-content:center;padding:16px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:26px;width:100%;max-width:380px}
+.card h1{margin:0 0 4px;font-size:24px}
+.card p{margin:0 0 18px;color:var(--muted)}
+.card label{display:block;font-size:13px;color:var(--muted);margin:12px 0 6px}
+.card input{width:100%}
+.row{display:flex;gap:8px}
+.or{text-align:center;color:var(--muted);margin:16px 0 4px;font-size:13px}
+#status{margin-top:14px;color:var(--muted);min-height:1.4em;font-size:14px}
+
+/* Room */
+#room{height:100%;display:grid;grid-template-rows:auto auto 1fr;grid-template-columns:1fr 290px}
+header{grid-column:1/3;display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+.code{font-family:ui-monospace,monospace;font-size:18px;letter-spacing:2px;background:var(--bg);padding:4px 10px;border-radius:6px;border:1px solid var(--line)}
+.tabs{display:flex;gap:4px;margin-left:auto}
+#people{display:flex;gap:6px;flex-wrap:wrap}
+.chip{display:flex;align-items:center;gap:6px;background:var(--panel2);border-radius:20px;padding:3px 10px;font-size:13px}
+.dot{width:10px;height:10px;border-radius:50%}
+#toolbar{grid-column:1;display:flex;gap:8px;padding:8px 12px;align-items:center;background:var(--panel);border-bottom:1px solid var(--line)}
+#urlForm{display:flex;gap:8px;flex:1}
+#urlInput{flex:1}
+#stage{grid-column:1;position:relative;background:#000;overflow:hidden}
+#video{width:100%;height:100%;object-fit:contain;display:block}
+#frame{width:100%;height:100%;border:0;background:#fff;display:block}
+#placeholder{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;color:var(--muted)}
+#placeholder div{max-width:420px}
+#overlay{position:absolute;inset:0;z-index:5;outline:none}
+#overlay.ctl:focus{box-shadow:inset 0 0 0 3px var(--accent)}
+#unmute{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);z-index:9}
+#draw{position:absolute;left:0;top:0;z-index:7;pointer-events:none;touch-action:none}
+#stickers{position:absolute;inset:0;z-index:6;pointer-events:none;overflow:hidden}
+.sticker{position:absolute;pointer-events:auto;cursor:grab;touch-action:none;user-select:none}
+.sticker:active{cursor:grabbing}
+.sticker img{width:100%;height:100%;display:block;pointer-events:none;-webkit-user-drag:none}
+.sticker .h{display:none;position:absolute}
+.sticker.sel{outline:2px dashed var(--accent);outline-offset:3px}
+.sticker.sel .h{display:block}
+.sticker .rot{left:50%;top:-34px;width:18px;height:18px;margin-left:-9px;border-radius:50%;background:var(--accent);border:2px solid #fff;cursor:grab}
+.sticker .rot::after{content:'';position:absolute;left:50%;top:16px;width:2px;height:14px;margin-left:-1px;background:var(--accent)}
+.sticker .scale{right:-10px;bottom:-10px;width:18px;height:18px;background:#fff;border:2px solid var(--accent);border-radius:4px;cursor:nwse-resize}
+.sticker .del{right:-13px;top:-13px;width:26px;height:26px;padding:0;border-radius:50%;background:var(--danger);color:#fff;font-size:17px;line-height:1}
+#stage.dropping{box-shadow:inset 0 0 0 3px var(--accent)}
+#draw.on{pointer-events:auto;cursor:crosshair}
+#drawTools{display:flex;gap:6px}
+#screenTools{min-width:0}
+#shareInfo{flex:0 1 auto;min-width:0;max-width:38%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#navForm{display:flex;gap:4px;flex:1;min-width:0}
+#navForm button{padding:8px 10px}
+#navInput{flex:1;min-width:80px}
+.cursor{position:absolute;pointer-events:none;transform:translate(-2px,-2px);transition:left .06s linear,top .06s linear;z-index:8}
+.cursor svg{display:block;filter:drop-shadow(0 1px 2px #000a)}
+.cursor span{position:absolute;left:16px;top:14px;font-size:12px;font-weight:700;padding:1px 6px;border-radius:6px;color:#06121e;white-space:nowrap}
+.ripple{position:absolute;width:44px;height:44px;margin:-22px 0 0 -22px;border-radius:50%;border:3px solid;pointer-events:none;animation:rip .7s ease-out forwards;z-index:8}
+@keyframes rip{from{transform:scale(.2);opacity:1}to{transform:scale(1.6);opacity:0}}
+
+/* Chat */
+aside{grid-column:2;grid-row:2/4;display:flex;flex-direction:column;background:var(--panel);border-left:1px solid var(--line);min-height:0}
+#log{flex:1;overflow-y:auto;padding:10px 12px;display:flex;flex-direction:column;gap:6px}
+.msg b{margin-right:4px}
+.sys{color:var(--muted);font-style:italic;font-size:13px}
+#chatForm{display:flex;gap:6px;padding:10px;border-top:1px solid var(--line)}
+#chatInput{flex:1}
+
+@media (max-width:760px){
+  #room{grid-template-columns:1fr;grid-template-rows:auto auto 55vh 1fr}
+  header{grid-column:1}
+  aside{grid-column:1;grid-row:4;border-left:0;border-top:1px solid var(--line)}
+}
+</style>
+</head>
+<body>
+
+<!-- LOBBY -->
+<div id="lobby">
+  <div class="card">
+    <h1>Browse Together</h1>
+    <p>Make a room, send the code to your friends, and look at the web together.</p>
+    <label for="name">Your name</label>
+    <input id="name" maxlength="20" placeholder="Player">
+    <div style="margin-top:16px"><button id="createBtn" style="width:100%">Create a room</button></div>
+    <div class="or">or join a friend</div>
+    <div class="row">
+      <input id="code" maxlength="5" placeholder="ROOM CODE" style="text-transform:uppercase;flex:1">
+      <button id="joinBtn" class="ghost">Join</button>
+    </div>
+    <div id="status"></div>
+  </div>
+</div>
+
+<!-- ROOM -->
+<div id="room" hidden>
+  <header>
+    <span style="color:var(--muted)">Room</span>
+    <span class="code" id="roomCode"></span>
+    <button class="ghost" id="copyBtn">Copy invite</button>
+    <button class="ghost" id="controlBtn" hidden title="Let guests click, scroll and type in the shared tab">🎮 Guest control: Off</button>
+    <div id="people"></div>
+    <div class="tabs">
+      <button class="ghost" data-mode="screen">📺 Screen share</button>
+      <button class="ghost" data-mode="page">🌐 Shared page</button>
+    </div>
+  </header>
+
+  <div id="toolbar">
+    <div id="screenTools" class="row" style="flex:1;align-items:center">
+      <button id="shareBtn">Share a tab</button>
+      <form id="navForm" hidden title="Changes the site in the controlled tab">
+        <button type="button" class="ghost" id="navBack" title="Back">◀</button>
+        <button type="button" class="ghost" id="navFwd" title="Forward">▶</button>
+        <button type="button" class="ghost" id="navReload" title="Reload">⟳</button>
+        <input id="navInput" placeholder="Go to a website in the shared tab…" autocomplete="off" spellcheck="false">
+        <button type="submit">Go</button>
+      </form>
+      <span id="shareInfo" style="color:var(--muted);font-size:13px"></span>
+    </div>
+    <form id="urlForm" hidden>
+      <input id="urlInput" placeholder="Type a website or search Wikipedia…">
+      <button type="submit">Go for everyone</button>
+      <button type="button" class="ghost" id="pointBtn" title="Point on the page without clicking it">👆 Point</button>
+    </form>
+    <button class="ghost" id="stickerBtn" title="Add an image sticker. You can also paste (Ctrl+V) an image or an image link, or drop one here.">🖼 Sticker</button>
+    <input type="file" id="stickerFile" accept="image/*" hidden>
+    <button class="ghost" id="drawBtn" title="Draw on top of what everyone sees">✏️ Draw</button>
+    <span id="drawTools" hidden>
+      <button class="ghost" id="sizeBtn" title="Pen size">● M</button>
+      <button class="ghost" id="undoBtn" title="Undo your last line">↩ Undo</button>
+      <button class="ghost" id="clearBtn" title="Clear all drawings for everyone">🗑 Clear</button>
+    </span>
+    <button class="ghost" id="fsBtn" title="Fullscreen">⛶</button>
+  </div>
+
+  <div id="stage">
+    <video id="video" playsinline autoplay></video>
+    <iframe id="frame" hidden allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
+      sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-presentation"></iframe>
+    <div id="placeholder"><div id="phText"></div></div>
+    <div id="overlay"></div>
+    <div id="stickers"></div>
+    <canvas id="draw"></canvas>
+    <button id="unmute" hidden>🔊 Click for sound</button>
+  </div>
+
+  <aside>
+    <div id="log"></div>
+    <form id="chatForm">
+      <input id="chatInput" placeholder="Say something…" maxlength="400">
+      <button>Send</button>
+    </form>
+  </aside>
+</div>
+
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script>
+const $ = s => document.querySelector(s);
+const PREFIX = 'browse-together-v1-';
+const COLORS = ['#ff6b6b','#ffd93d','#6bcb77','#6cc4ff','#c77dff','#ff9f1c','#2ec4b6','#f15bb5'];
+
+let peer, isHost = false, hostConn = null, roomCode = '';
+const conns = new Map();   // host only: peerId -> DataConnection
+const calls = new Map();   // sharer only: peerId -> MediaConnection
+let myId, people = {}, sharer = null, localStream = null;
+let mode = 'screen', curUrl = '', pointMode = false, control = false, hasBridge = false, bridgeKey = '', tabInfo = null;
+
+const video = $('#video'), frame = $('#frame'), overlay = $('#overlay');
+const canvas = $('#draw'), ctx = canvas.getContext('2d');
+let strokes = [];                 // { id, from, c, w, mode, pts:[[x,y],...] }
+const strokeMap = new Map();
+const stickers = new Map();       // id -> { id, from, src, x, y, w, r, a, z, mode, el }
+let selectedSticker = null, topZ = 1, stickerN = 0;
+const unit = v => { const n = Number(v); return Number.isFinite(n) ? Math.min(1, Math.max(0, n)) : 0; };
+
+// ---------- lobby ----------
+try { $('#name').value = localStorage.getItem('bt-name') || ''; } catch(e){}
+if (location.hash.length > 1) $('#code').value = location.hash.slice(1).toUpperCase();
+
+function myName(){
+  const n = ($('#name').value.trim() || 'Player').slice(0,20);
+  try { localStorage.setItem('bt-name', n); } catch(e){}
+  return n;
+}
+function setStatus(t){ $('#status').textContent = t; }
+function lobbyBusy(b){ $('#createBtn').disabled = $('#joinBtn').disabled = b; }
+function randCode(){
+  const a = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  return Array.from({length:5}, () => a[Math.random()*a.length|0]).join('');
+}
+
+$('#createBtn').onclick = () => { if (!window.Peer) return setStatus('Could not load the connection library — check your internet.'); lobbyBusy(true); startHost(randCode()); };
+$('#joinBtn').onclick = () => {
+  const c = $('#code').value.trim().toUpperCase();
+  if (!c) return setStatus('Type the room code first.');
+  if (!window.Peer) return setStatus('Could not load the connection library — check your internet.');
+  lobbyBusy(true); startGuest(c);
+};
+$('#code').addEventListener('keydown', e => { if (e.key === 'Enter') $('#joinBtn').click(); });
+
+function handleErr(e){
+  if (e.type === 'peer-unavailable') setStatus('Room not found. Check the code (the host must keep their page open).');
+  else setStatus('Connection problem: ' + e.type);
+  lobbyBusy(false);
+}
+
+// ---------- host ----------
+function startHost(code){
+  isHost = true; setStatus('Creating room…');
+  peer = new Peer(PREFIX + code);
+  peer.on('open', id => {
+    myId = id;
+    people[id] = { id, name: myName(), color: COLORS[0] };
+    enterRoom(code);
+    sys('Room created. Share the code ' + code + ' with your friends.');
+  });
+  peer.on('connection', conn => {
+    conn.on('open', () => conns.set(conn.peer, conn));
+    conn.on('data', d => onData(d, conn.peer));
+    conn.on('close', () => dropPerson(conn.peer));
+    conn.on('error', () => dropPerson(conn.peer));
+  });
+  peer.on('call', answerCall);
+  peer.on('error', e => {
+    if (e.type === 'unavailable-id') { peer.destroy(); startHost(randCode()); }
+    else if (!myId) handleErr(e);
+  });
+}
+function freeColor(){
+  const used = Object.values(people).map(p => p.color);
+  return COLORS.find(c => !used.includes(c)) || COLORS[Math.random()*COLORS.length|0];
+}
+function dropPerson(id){
+  conns.delete(id);
+  if (!people[id]) return;
+  const name = people[id].name, kind = people[id].kind;
+  delete people[id];
+  if (sharer === id) sharer = null;
+  const m = { type:'people', people, left:id, leftName:name, leftKind:kind, sharer, from:myId };
+  apply(m); relay(m, null);
+}
+
+// ---------- guest ----------
+function startGuest(code){
+  setStatus('Connecting…');
+  peer = new Peer();
+  peer.on('open', id => {
+    myId = id;
+    hostConn = peer.connect(PREFIX + code, { reliable:true });
+    hostConn.on('open', () => { hostConn.send({ type:'hello', name: myName() }); enterRoom(code); });
+    hostConn.on('data', d => onData(d, PREFIX + code));
+    hostConn.on('close', () => { alert('The host left, so the room has closed.'); location.reload(); });
+  });
+  peer.on('call', answerCall);
+  peer.on('error', e => { if (!roomCode) handleErr(e); });
+}
+
+// ---------- messaging ----------
+function send(msg){
+  msg.from = myId;
+  if (msg.type === 'input'){
+    if (isHost) routeInput(msg);                    // the host can always control
+    else if (hasBridge) forwardToBridge(msg, true); // my own tab, straight through
+    else if (hostConn && hostConn.open) hostConn.send(msg);
+    return;
+  }
+  apply(msg);
+  if (isHost) relay(msg, null);
+  else if (hostConn && hostConn.open) hostConn.send(msg);
+}
+// Input goes to whoever in the room has the Tampermonkey script running on their room page.
+function routeInput(msg){
+  for (const id in people){
+    if (!people[id].bridge) continue;
+    if (id === myId) forwardToBridge(msg, true);
+    else { const c = conns.get(id); if (c && c.open) c.send(msg); }
+  }
+}
+function hostId(){ return PREFIX + roomCode; }
+// Allowed: the host, the tab's owner, or anyone while Guest control is on.
+function mayControl(from){ return control || from === hostId() || from === myId; }
+function forwardToBridge(msg, ok){
+  if (hasBridge && ok) window.postMessage({ bt:'in', key:bridgeKey, msg }, '*');
+}
+function pushBridgeState(){
+  if (hasBridge) window.postMessage({ bt:'state', key:bridgeKey, room:roomCode, control }, '*');
+}
+window.addEventListener('message', e => {
+  // The controlled tab reports which page it's on; share that with the room.
+  if (e.data && e.data.bt === 'tabinfo' && hasBridge && e.data.key === bridgeKey){
+    const url = safeUrl(e.data.url);
+    if (url && roomCode && (!tabInfo || tabInfo.url !== url || tabInfo.title !== String(e.data.title || '')))
+      send({ type:'tabinfo', url, title:String(e.data.title || '').slice(0, 200) });
+    return;
+  }
+  if ((e.source && e.source !== window) || !e.data || e.data.bt !== 'bridge-ready') return;
+  if (typeof e.data.key !== 'string' || !e.data.key) return;
+  const first = !hasBridge;
+  bridgeKey = e.data.key; hasBridge = true;
+  pushBridgeState();
+  if (first && roomCode) send({ type:'bridge', on:true });
+  updateShareUI();
+});
+window.postMessage({ bt:'ping' }, '*');
+setInterval(pushBridgeState, 2000);
+function relay(msg, except){
+  for (const [id, c] of conns) if (id !== except && c.open) c.send(msg);
+}
+function onData(msg, fromPeer){
+  if (!msg || typeof msg !== 'object') return;
+  if (isHost){
+    if (msg.type === 'hello'){
+      const kind = msg.kind === 'tab' ? 'tab' : 'person';
+      people[fromPeer] = { id:fromPeer, kind, name:String(msg.name || 'Player').slice(0,40), color: kind === 'tab' ? '#8fa3b8' : freeColor() };
+      const c = conns.get(fromPeer);
+      if (c && kind !== 'tab') c.send({ type:'welcome', people, mode, url:curUrl, sharer, control, strokes, stickers:stickerList(), tabInfo, from:myId });
+      else if (c) c.send({ type:'welcome', people, mode, sharer, control, from:myId });
+      const m = { type:'people', people, joined:fromPeer, sharer, from:myId };
+      apply(m); relay(m, fromPeer);
+      return;
+    }
+    msg.from = fromPeer;          // never trust a claimed sender
+    if (!people[fromPeer]) return;
+    if (people[fromPeer].kind === 'tab') return;              // controlled tabs only listen
+    if (msg.type === 'control') return;                       // only the host decides this
+    if (msg.type === 'input'){ if (control) routeInput(msg); return; }
+    relay(msg, fromPeer);
+  }
+  apply(msg);
+}
+function nameOf(id){ return (people[id] && people[id].name) || 'Someone'; }
+
+function apply(msg){
+  switch (msg.type){
+    case 'welcome':
+      people = msg.people || {}; sharer = msg.sharer || null; control = !!msg.control;
+      setStrokes(Array.isArray(msg.strokes) ? msg.strokes : []);
+      setStickers(Array.isArray(msg.stickers) ? msg.stickers : []);
+      if (msg.tabInfo) showTabInfo(msg.tabInfo);
+      updateControlUI(); renderPeople(); setMode(msg.mode || 'screen');
+      if (msg.url) loadUrl(msg.url);
+      updateShareUI(); sys('You joined the room.');
+      break;
+    case 'people':
+      people = msg.people || {};
+      if ('sharer' in msg) sharer = msg.sharer;
+      renderPeople(); updateShareUI();
+      if (msg.joined && msg.joined !== myId && !isTab(msg.joined)){
+        sys(nameOf(msg.joined) + ' joined.');
+        if (localStream) callPeer(msg.joined);   // late joiner gets the stream
+      }
+      if (msg.left){
+        if (msg.leftKind !== 'tab') sys((msg.leftName || 'Someone') + ' left.');
+        removeCursor(msg.left);
+        if (!sharer && !localStream) clearVideo();
+      }
+      break;
+    case 'chat': addChat(msg.from, String(msg.text || '').slice(0,400)); break;
+    case 'mode': setMode(msg.mode); break;
+    case 'url': {
+      const u = safeUrl(msg.url); if (!u) break;
+      loadUrl(u);
+      if (msg.from !== myId) sys(nameOf(msg.from) + ' opened ' + u);
+      break;
+    }
+    case 'share':
+      if (msg.on){
+        if (msg.from !== myId && localStream) stopShare(true);  // someone took over
+        sharer = msg.from;
+        if (msg.from !== myId) sys(nameOf(msg.from) + ' started sharing.');
+      } else {
+        if (sharer === msg.from) sharer = null;
+        if (msg.from !== myId){ clearVideo(); sys(nameOf(msg.from) + ' stopped sharing.'); }
+      }
+      renderPeople(); updateShareUI();
+      break;
+    case 'ptr':
+      if (msg.from !== myId) drawPointer(msg);
+      if (msg.mode === 'screen' && !msg.hide) forwardToBridge(msg, mayControl(msg.from));
+      break;
+    case 'input': forwardToBridge(msg, mayControl(msg.from)); break;
+    case 'bridge':
+      if (people[msg.from]) people[msg.from].bridge = !!msg.on;
+      renderPeople(); updateShareUI();
+      break;
+    case 'stroke': addStroke(msg); break;
+    case 'sticker': createSticker(msg); break;
+    case 'tabinfo':
+      if (people[msg.from] && people[msg.from].bridge) showTabInfo(msg);
+      break;
+    case 'stk': updateSticker(msg); break;
+    case 'stkDel': removeSticker(String(msg.id)); break;
+    case 'unstroke': {
+      const st = strokeMap.get(String(msg.id));
+      if (st && st.from === msg.from){ setStrokes(strokes.filter(x => x !== st)); }
+      break;
+    }
+    case 'clear':
+      setStrokes(strokes.filter(x => x.mode !== msg.mode));
+      sys(nameOf(msg.from) + ' cleared the drawings.');
+      break;
+    case 'control':
+      control = !!msg.on; updateControlUI();
+      sys(control ? '🎮 Guest control is on: click the shared picture to use the tab.' : '🎮 Guest control is off.');
+      break;
+  }
+}
+
+// ---------- room UI ----------
+function enterRoom(code){
+  roomCode = code;
+  $('#lobby').hidden = true; $('#room').hidden = false;
+  $('#roomCode').textContent = code;
+  try { history.replaceState(null, '', '#' + code); } catch(e){}
+  renderPeople(); setMode(mode); updateControlUI();
+  if (hasBridge) send({ type:'bridge', on:true });
+}
+function isTab(id){ return !!(people[id] && people[id].kind === 'tab'); }
+function hasTab(){ return Object.values(people).some(p => p.bridge || p.kind === 'tab'); }
+function updateControlUI(){
+  const b = $('#controlBtn');
+  b.hidden = !isHost;
+  b.textContent = '🎮 Guest control: ' + (control ? 'On' : 'Off');
+  b.classList.toggle('on', control);
+  overlay.classList.toggle('ctl', control || isHost || hasBridge);
+  pushBridgeState();
+  updateShareUI();
+}
+$('#controlBtn').onclick = () => send({ type:'control', on: !control });
+function renderPeople(){
+  const box = $('#people'); box.innerHTML = '';
+  for (const p of Object.values(people)){
+    const chip = document.createElement('span'); chip.className = 'chip';
+    const dot = document.createElement('span'); dot.className = 'dot'; dot.style.background = p.color;
+    const t = document.createElement('span');
+    t.textContent = (p.kind === 'tab' ? '🖱 ' : '') + p.name + (p.id === myId ? ' (you)' : '') + (p.id === sharer ? ' 📺' : '') + (p.bridge ? ' 🎮' : '') + (p.id.startsWith(PREFIX) ? ' ★' : '');
+    chip.append(dot, t); box.append(chip);
+  }
+}
+$('#copyBtn').onclick = async () => {
+  const text = location.protocol.startsWith('http') ? location.href.split('#')[0] + '#' + roomCode : roomCode;
+  try { await navigator.clipboard.writeText(text); $('#copyBtn').textContent = 'Copied!'; }
+  catch(e){ prompt('Copy this:', text); }
+  setTimeout(() => $('#copyBtn').textContent = 'Copy invite', 1500);
+};
+document.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => send({ type:'mode', mode:b.dataset.mode }));
+
+function setMode(m){
+  mode = (m === 'page') ? 'page' : 'screen';
+  document.querySelectorAll('[data-mode]').forEach(b => b.classList.toggle('on', b.dataset.mode === mode));
+  $('#screenTools').hidden = mode !== 'screen';
+  $('#urlForm').hidden = mode !== 'page';
+  video.hidden = mode !== 'screen';
+  frame.hidden = mode !== 'page';
+  overlay.style.pointerEvents = (mode === 'screen' || pointMode) ? 'auto' : 'none';
+  overlay.style.cursor = mode === 'screen' ? 'crosshair' : (pointMode ? 'crosshair' : '');
+  updatePlaceholder();
+  Object.keys(cursors).forEach(removeCursor);
+  redraw();
+}
+function updatePlaceholder(){
+  let text = '';
+  if (mode === 'screen' && !video.srcObject){
+    text = navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia
+      ? 'Nobody is sharing yet. Click "Share a tab" and pick the browser tab everyone should see. In Chrome or Edge, choose the "Tab" option and tick "Share tab audio" so friends hear videos too.'
+      : 'Nobody is sharing yet. (Your browser cannot share its screen — try Chrome, Edge or Firefox on a computer. You can still watch.)';
+  } else if (mode === 'page' && !curUrl){
+    text = 'Type a website above and press "Go for everyone". YouTube links and Wikipedia work well. Many big sites refuse to load inside another page — use Screen share for those.';
+  }
+  $('#placeholder').hidden = !text;
+  $('#phText').textContent = text;
+}
+
+// ---------- screen share ----------
+function updateShareUI(){
+  const btn = $('#shareBtn');
+  const can = !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia);
+  btn.disabled = !can;
+  btn.textContent = localStream ? 'Stop sharing' : (sharer && sharer !== myId ? 'Take over sharing' : 'Share a tab');
+  btn.classList.toggle('ghost', !!localStream);
+  let info = sharer
+    ? (sharer === myId ? 'Everyone sees what you share. Their pointers appear on your preview here.' : nameOf(sharer) + ' is sharing. Click on the picture to point things out.')
+    : '';
+  if (hasBridge) info += ' ✅ Control script found on this page.';
+  if (hasTab()){
+    if (control) info += ' 🎮 Everyone can control: click the picture, then use mouse, wheel and keyboard.';
+    else if (isHost) info += ' 🎮 You can control the tab: click the picture. Guests can\'t until you turn on Guest control.';
+  } else if (control){
+    info += ' 🎮 Control is on, but nobody has the Tampermonkey control script running yet.';
+  }
+  $('#shareInfo').textContent = info;
+  $('#shareInfo').title = info;
+  $('#navForm').hidden = !canNavigate();
+}
+$('#shareBtn').onclick = () => localStream ? stopShare(false) : startShare();
+
+async function startShare(){
+  try {
+    localStream = await navigator.mediaDevices.getDisplayMedia({ video:{ frameRate:30 }, audio:true });
+  } catch(e){ return; }
+  localStream.getVideoTracks()[0].addEventListener('ended', () => stopShare(false));
+  showStream(localStream, true);
+  send({ type:'share', on:true });
+  if (mode !== 'screen') send({ type:'mode', mode:'screen' });
+  for (const id in people) if (id !== myId && !isTab(id)) callPeer(id);
+  updateShareUI();
+}
+function callPeer(id){
+  if (!localStream) return;
+  try { calls.set(id, peer.call(id, localStream)); } catch(e){}
+}
+function stopShare(silent){
+  if (!localStream) return;
+  localStream.getTracks().forEach(t => t.stop());
+  localStream = null;
+  calls.forEach(c => { try { c.close(); } catch(e){} }); calls.clear();
+  clearVideo();
+  if (!silent) send({ type:'share', on:false });
+  updateShareUI();
+}
+function answerCall(call){
+  call.answer();
+  call.on('stream', s => showStream(s, false));
+}
+function showStream(stream, isLocal){
+  video.srcObject = stream;
+  video.muted = isLocal;
+  $('#unmute').hidden = true;
+  video.play().catch(() => { video.muted = true; video.play().catch(()=>{}); $('#unmute').hidden = isLocal; });
+  updatePlaceholder();
+}
+function clearVideo(){ video.srcObject = null; $('#unmute').hidden = true; updatePlaceholder(); }
+$('#unmute').onclick = () => { video.muted = false; video.play(); $('#unmute').hidden = true; };
+
+// ---------- shared page ----------
+function safeUrl(u){
+  try { const x = new URL(String(u)); return /^https?:$/.test(x.protocol) ? x.href : ''; } catch(e){ return ''; }
+}
+function normalize(input){
+  let u = input.trim(); if (!u) return '';
+  if (!/^https?:\/\//i.test(u)){
+    u = (/\s/.test(u) || !u.includes('.'))
+      ? 'https://en.wikipedia.org/w/index.php?search=' + encodeURIComponent(u)
+      : 'https://' + u;
+  }
+  const yt = u.match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/)|youtu\.be\/)([\w-]{11})/);
+  if (yt) u = 'https://www.youtube.com/embed/' + yt[1] + '?autoplay=1';
+  return safeUrl(u);
+}
+function loadUrl(u){
+  curUrl = u; frame.src = u; $('#urlInput').value = u; updatePlaceholder();
+}
+$('#urlForm').onsubmit = e => {
+  e.preventDefault();
+  const u = normalize($('#urlInput').value);
+  if (u) send({ type:'url', url:u });
+};
+$('#pointBtn').onclick = () => {
+  pointMode = !pointMode;
+  $('#pointBtn').classList.toggle('on', pointMode);
+  setMode(mode);
+};
+
+// ---------- pointers ----------
+function contentRect(){
+  const s = $('#stage').getBoundingClientRect();
+  if (mode === 'screen' && video.videoWidth){
+    const vr = video.videoWidth / video.videoHeight, er = s.width / s.height;
+    let w, h; if (vr > er){ w = s.width; h = w / vr; } else { h = s.height; w = h * vr; }
+    return { left:s.left + (s.width - w)/2, top:s.top + (s.height - h)/2, width:w, height:h, sl:s.left, st:s.top };
+  }
+  return { left:s.left, top:s.top, width:s.width, height:s.height, sl:s.left, st:s.top };
+}
+let lastSend = 0;
+function sendPtr(e, click){
+  const r = contentRect();
+  const x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
+  if (x < 0 || y < 0 || x > 1 || y > 1) return;
+  const now = performance.now();
+  if (!click && now - lastSend < 45) return;
+  lastSend = now;
+  send({ type:'ptr', x:+x.toFixed(4), y:+y.toFixed(4), click:!!click, mode });
+}
+overlay.addEventListener('pointermove', e => sendPtr(e, false));
+overlay.addEventListener('pointerdown', e => { sendPtr(e, true); spawnRipple(e.clientX, e.clientY, (people[myId]||{}).color || '#fff'); });
+overlay.addEventListener('pointerleave', () => send({ type:'ptr', hide:true, mode }));
+
+// ---------- switching the site in the controlled tab ----------
+function canNavigate(){ return hasTab() && (control || isHost || hasBridge); }
+function navUrl(input){
+  let u = input.trim(); if (!u) return '';
+  if (!/^https?:\/\//i.test(u)){
+    u = (/\s/.test(u) || !u.includes('.'))
+      ? 'https://duckduckgo.com/?q=' + encodeURIComponent(u)
+      : 'https://' + u;
+  }
+  return safeUrl(u);
+}
+function showTabInfo(m){
+  const url = safeUrl(m.url); if (!url) return;
+  tabInfo = { url, title:String(m.title || '').slice(0, 200) };
+  const box = $('#navInput');
+  if (document.activeElement !== box) box.value = url;
+  box.title = tabInfo.title ? tabInfo.title + '\n' + url : url;
+}
+$('#navForm').onsubmit = e => {
+  e.preventDefault();
+  const url = navUrl($('#navInput').value);
+  if (!url || !canNavigate()) return;
+  send({ type:'input', t:'nav', url });
+  $('#navInput').blur();
+  sys('Opening ' + url + ' in the shared tab…');
+};
+$('#navBack').onclick = () => canNavigate() && send({ type:'input', t:'back' });
+$('#navFwd').onclick = () => canNavigate() && send({ type:'input', t:'fwd' });
+$('#navReload').onclick = () => canNavigate() && send({ type:'input', t:'reload' });
+
+// ---------- guest control (sent to the tab running the userscript) ----------
+overlay.tabIndex = 0;
+function canControl(){ return (control || isHost || hasBridge) && mode === 'screen' && !!video.srcObject && hasTab(); }
+function normPos(e, clamp){
+  const r = contentRect();
+  let x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
+  if (clamp){ x = Math.min(1, Math.max(0, x)); y = Math.min(1, Math.max(0, y)); }
+  else if (x < 0 || y < 0 || x > 1 || y > 1) return null;
+  return { x:+x.toFixed(4), y:+y.toFixed(4) };
+}
+let ctlDown = false;
+overlay.addEventListener('pointerdown', e => {
+  overlay.focus({ preventScroll:true });
+  if (!canControl()) return;
+  const p = normPos(e, false); if (!p) return;
+  ctlDown = true;
+  try { overlay.setPointerCapture(e.pointerId); } catch(err){}
+  send({ type:'input', t:'down', b:e.button, ...p });
+});
+overlay.addEventListener('pointerup', e => {
+  if (!ctlDown) return; ctlDown = false;
+  if (!canControl()) return;
+  send({ type:'input', t:'up', b:e.button, ...normPos(e, true) });
+});
+overlay.addEventListener('contextmenu', e => { if (canControl()) e.preventDefault(); });
+const wheelAcc = { dx:0, dy:0, x:0, y:0, timer:0 };
+overlay.addEventListener('wheel', e => {
+  if (!canControl()) return;
+  e.preventDefault();
+  const p = normPos(e, false); if (!p) return;
+  const mult = e.deltaMode === 1 ? 40 : e.deltaMode === 2 ? innerHeight : 1;
+  wheelAcc.dx += e.deltaX * mult; wheelAcc.dy += e.deltaY * mult; wheelAcc.x = p.x; wheelAcc.y = p.y;
+  if (!wheelAcc.timer) wheelAcc.timer = setTimeout(() => {
+    send({ type:'input', t:'wheel', x:wheelAcc.x, y:wheelAcc.y, dx:Math.round(wheelAcc.dx), dy:Math.round(wheelAcc.dy) });
+    wheelAcc.dx = wheelAcc.dy = 0; wheelAcc.timer = 0;
+  }, 40);
+}, { passive:false });
+function sendKey(e, up){
+  if (!canControl() || e.isComposing) return;
+  if (['F5','F11','F12'].includes(e.key)) return;
+  e.preventDefault();
+  send({ type:'input', t:'key', up, k:e.key, c:e.code, ctrl:e.ctrlKey, shift:e.shiftKey, alt:e.altKey, meta:e.metaKey, repeat:e.repeat });
+}
+overlay.addEventListener('keydown', e => sendKey(e, false));
+overlay.addEventListener('keyup', e => sendKey(e, true));
+
+const cursors = {}, hideTimers = {};
+function drawPointer(m){
+  if (m.mode !== mode) return;
+  const id = m.from;
+  if (m.hide){ removeCursor(id); return; }
+  const x = Number(m.x), y = Number(m.y);
+  if (!(x >= 0 && x <= 1 && y >= 0 && y <= 1)) return;
+  const p = people[id] || { name:'?', color:'#fff' };
+  let el = cursors[id];
+  if (!el){
+    el = document.createElement('div'); el.className = 'cursor';
+    el.innerHTML = '<svg width="18" height="22" viewBox="0 0 18 22"><path d="M1 1l15 11-7 1-4 7z" stroke="#000" stroke-width="1.2"/></svg><span></span>';
+    $('#stage').append(el); cursors[id] = el;
+  }
+  el.querySelector('path').setAttribute('fill', p.color);
+  const label = el.querySelector('span'); label.textContent = p.name; label.style.background = p.color;
+  const r = contentRect();
+  const px = r.left - r.sl + x * r.width, py = r.top - r.st + y * r.height;
+  el.style.left = px + 'px'; el.style.top = py + 'px';
+  if (m.click) spawnRipple(r.left + x * r.width, r.top + y * r.height, p.color);
+  clearTimeout(hideTimers[id]);
+  hideTimers[id] = setTimeout(() => removeCursor(id), 5000);
+}
+function removeCursor(id){ if (cursors[id]){ cursors[id].remove(); delete cursors[id]; } }
+function spawnRipple(cx, cy, color){
+  const s = $('#stage').getBoundingClientRect();
+  const r = document.createElement('div'); r.className = 'ripple';
+  r.style.left = (cx - s.left) + 'px'; r.style.top = (cy - s.top) + 'px'; r.style.borderColor = color;
+  $('#stage').append(r); setTimeout(() => r.remove(), 750);
+}
+
+// ---------- drawing ----------
+const SIZES = [['S', 0.002], ['M', 0.004], ['L', 0.009]];
+let drawOn = false, sizeIdx = 1, strokeN = 0, cur = null, pending = [], flushTimer = 0;
+const MAX_POINTS = 40000;
+
+function sizeCanvas(){
+  const s = $('#stage').getBoundingClientRect(), d = devicePixelRatio || 1;
+  canvas.width = Math.max(1, Math.round(s.width * d));
+  canvas.height = Math.max(1, Math.round(s.height * d));
+  canvas.style.width = s.width + 'px'; canvas.style.height = s.height + 'px';
+  redraw();
+}
+function redraw(){
+  const d = devicePixelRatio || 1;
+  ctx.setTransform(d, 0, 0, d, 0, 0);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  for (const st of strokes) if (st.mode === mode) drawStroke(st, 0);
+  layoutStickers();
+}
+function drawStroke(st, from){
+  const p = st.pts; if (!p.length) return;
+  const r = contentRect(), ox = r.left - r.sl, oy = r.top - r.st;
+  const X = q => ox + q[0] * r.width, Y = q => oy + q[1] * r.height;
+  ctx.strokeStyle = st.c; ctx.lineWidth = Math.max(1.5, st.w * r.width);
+  ctx.lineCap = ctx.lineJoin = 'round';
+  ctx.beginPath();
+  const i0 = Math.max(0, from - 1);
+  ctx.moveTo(X(p[i0]), Y(p[i0]));
+  if (p.length === 1) ctx.lineTo(X(p[0]) + 0.1, Y(p[0]));
+  for (let i = i0 + 1; i < p.length; i++) ctx.lineTo(X(p[i]), Y(p[i]));
+  ctx.stroke();
+}
+function cleanStroke(m){
+  const id = String(m.id || '').slice(0, 120);
+  if (!m.from || !id.startsWith(m.from + '-')) return null;     // only your own lines
+  return {
+    id, from: m.from,
+    c: /^#[0-9a-f]{6}$/i.test(m.c) ? m.c : '#ffffff',
+    w: Math.min(0.03, Math.max(0.001, Number(m.w) || 0.004)),
+    mode: m.mode === 'page' ? 'page' : 'screen', pts: []
+  };
+}
+function addStroke(m){
+  const add = Array.isArray(m.add) ? m.add.slice(0, 600) : [];
+  if (!add.length) return;
+  let st = strokeMap.get(String(m.id));
+  if (st){ if (st.from !== m.from) return; }
+  else { st = cleanStroke(m); if (!st) return; strokes.push(st); strokeMap.set(st.id, st); }
+  const start = st.pts.length;
+  for (const q of add) st.pts.push([unit(q && q[0]), unit(q && q[1])]);
+  if (trimStrokes()) redraw();
+  else if (st.mode === mode) drawStroke(st, start);
+}
+function trimStrokes(){
+  let total = strokes.reduce((n, x) => n + x.pts.length, 0), trimmed = false;
+  while (total > MAX_POINTS && strokes.length > 1){
+    const old = strokes.shift(); strokeMap.delete(old.id); total -= old.pts.length; trimmed = true;
+  }
+  return trimmed;
+}
+function setStrokes(list){
+  strokes = []; strokeMap.clear();
+  for (const raw of list){
+    const st = cleanStroke(raw); if (!st || !Array.isArray(raw.pts)) continue;
+    st.pts = raw.pts.slice(0, MAX_POINTS).map(q => [unit(q && q[0]), unit(q && q[1])]);
+    strokes.push(st); strokeMap.set(st.id, st);
+  }
+  trimStrokes(); redraw();
+}
+function flushStroke(){
+  clearTimeout(flushTimer); flushTimer = 0;
+  if (!cur || !pending.length) return;
+  send({ type:'stroke', id:cur, add:pending, c:(people[myId] || {}).color || '#ffffff', w:SIZES[sizeIdx][1], mode });
+  pending = [];
+}
+canvas.addEventListener('pointerdown', e => {
+  if (!drawOn) return;
+  const p = normPos(e, false); if (!p) return;
+  e.preventDefault();
+  try { canvas.setPointerCapture(e.pointerId); } catch(err){}
+  cur = myId + '-' + (++strokeN) + '-' + Date.now().toString(36);
+  pending = [[p.x, p.y]];
+  flushStroke();
+});
+canvas.addEventListener('pointermove', e => {
+  if (!cur) return;
+  const p = normPos(e, true);
+  pending.push([p.x, p.y]);
+  if (!flushTimer) flushTimer = setTimeout(flushStroke, 40);
+});
+['pointerup', 'pointercancel', 'lostpointercapture'].forEach(t =>
+  canvas.addEventListener(t, () => { if (cur){ flushStroke(); cur = null; } }));
+
+$('#drawBtn').onclick = () => {
+  drawOn = !drawOn;
+  $('#drawBtn').classList.toggle('on', drawOn);
+  canvas.classList.toggle('on', drawOn);
+  $('#drawTools').hidden = !drawOn;
+};
+$('#sizeBtn').onclick = () => {
+  sizeIdx = (sizeIdx + 1) % SIZES.length;
+  $('#sizeBtn').textContent = '● ' + SIZES[sizeIdx][0];
+};
+$('#undoBtn').onclick = () => {
+  for (let i = strokes.length - 1; i >= 0; i--){
+    if (strokes[i].from === myId && strokes[i].mode === mode){ send({ type:'unstroke', id:strokes[i].id }); return; }
+  }
+};
+$('#clearBtn').onclick = () => send({ type:'clear', mode });
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && drawOn && document.activeElement !== $('#chatInput')){
+    e.preventDefault(); $('#undoBtn').click();
+  }
+});
+new ResizeObserver(sizeCanvas).observe($('#stage'));
+video.addEventListener('loadedmetadata', redraw);
+video.addEventListener('resize', redraw);
+
+// ---------- stickers ----------
+const MAX_STICKERS = 30, MAX_SRC = 2000000, MAX_URL = 2000, MAX_GIF_BYTES = 1400000;
+const SRC_RE = /^data:image\/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/=]+$/;
+// A sticker image is either embedded data or a web link that every viewer loads.
+function okSrc(src){
+  if (typeof src !== 'string') return false;
+  if (src.startsWith('data:')) return src.length <= MAX_SRC && SRC_RE.test(src);
+  if (src.length > MAX_URL) return false;
+  try { const u = new URL(src); return u.protocol === 'https:' || u.protocol === 'http:'; } catch(e){ return false; }
+}
+const clampN = (v, lo, hi, d) => { const n = Number(v); return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : d; };
+
+function stickerList(){
+  return [...stickers.values()].map(({ el, ...rest }) => rest);
+}
+function applyGeom(st, m){
+  st.x = unit(m.x); st.y = unit(m.y);
+  st.w = clampN(m.w, 0.02, 1.5, st.w || 0.25);
+  st.r = clampN(m.r, -1000, 1000, st.r || 0);
+  st.z = Math.round(clampN(m.z, 0, 1e6, st.z || 1));
+  topZ = Math.max(topZ, st.z);
+}
+function createSticker(m){
+  const id = String(m.id || '').slice(0, 120);
+  if (!m.from || !id.startsWith(m.from + '-') || stickers.has(id)) return;
+  if (!okSrc(m.src)) return;
+  const st = { id, from:m.from, src:m.src, a:clampN(m.a, 0.05, 20, 1), mode: m.mode === 'page' ? 'page' : 'screen' };
+  applyGeom(st, m);
+  makeStickerEl(st);
+  stickers.set(id, st);
+  while (stickers.size > MAX_STICKERS) removeSticker(stickers.keys().next().value);
+  layoutSticker(st);
+}
+function updateSticker(m){
+  const st = stickers.get(String(m.id)); if (!st) return;
+  if (gesture && gesture.st === st && m.from !== myId) return;   // I'm holding it right now
+  applyGeom(st, m); layoutSticker(st);
+}
+function removeSticker(id){
+  const st = stickers.get(id); if (!st) return;
+  st.el.remove(); stickers.delete(id);
+  if (selectedSticker === id) selectedSticker = null;
+  if (gesture && gesture.st === st) gesture = null;
+}
+function setStickers(list){
+  for (const id of [...stickers.keys()]) removeSticker(id);
+  for (const m of list) createSticker(m);
+}
+
+function makeStickerEl(st){
+  const el = document.createElement('div'); el.className = 'sticker';
+  const img = new Image(); img.referrerPolicy = 'no-referrer'; img.alt = ''; img.draggable = false;
+  img.onerror = () => { img.style.background = 'repeating-linear-gradient(45deg,#333 0 8px,#444 8px 16px)'; img.title = 'This image link could not be loaded'; };
+  img.src = st.src;
+  const rot = document.createElement('div'); rot.className = 'h rot'; rot.title = 'Drag to rotate (hold Shift to snap)';
+  const sc = document.createElement('div'); sc.className = 'h scale'; sc.title = 'Drag to resize';
+  const del = document.createElement('button'); del.className = 'h del'; del.textContent = '×'; del.title = 'Remove sticker';
+  el.append(img, rot, sc, del);
+  $('#stickers').append(el);
+  st.el = el;
+  del.addEventListener('pointerdown', e => e.stopPropagation());
+  del.addEventListener('click', e => { e.stopPropagation(); send({ type:'stkDel', id:st.id }); });
+  el.addEventListener('pointerdown', e => startGesture(e, st, e.target === rot ? 'rot' : e.target === sc ? 'scale' : 'move'));
+  el.addEventListener('wheel', e => {
+    e.preventDefault();
+    selectSticker(st);
+    if (e.shiftKey) st.r += Math.sign(e.deltaY || e.deltaX) * Math.PI / 36;
+    else st.w = clampN(st.w * (e.deltaY < 0 ? 1.08 : 1 / 1.08), 0.02, 1.5, st.w);
+    layoutSticker(st); queueSticker(st);
+  }, { passive:false });
+}
+function layoutSticker(st){
+  const visible = st.mode === mode;
+  st.el.hidden = !visible;
+  if (!visible) return;
+  const r = contentRect(), w = st.w * r.width;
+  st.el.style.left = (r.left - r.sl + st.x * r.width) + 'px';
+  st.el.style.top = (r.top - r.st + st.y * r.height) + 'px';
+  st.el.style.width = w + 'px';
+  st.el.style.height = (w * st.a) + 'px';
+  st.el.style.transform = 'translate(-50%,-50%) rotate(' + st.r + 'rad)';
+  st.el.style.zIndex = st.z;
+  st.el.classList.toggle('sel', selectedSticker === st.id);
+}
+function layoutStickers(){ for (const st of stickers.values()) layoutSticker(st); }
+function selectSticker(st){ selectedSticker = st ? st.id : null; layoutStickers(); }
+
+// dragging, rotating, resizing
+let gesture = null, stkTimer = 0;
+const stkPending = new Set();
+function startGesture(e, st, kind){
+  if (drawOn || e.button !== 0) return;
+  e.preventDefault(); e.stopPropagation();
+  st.z = ++topZ;
+  selectSticker(st);
+  const r = contentRect();
+  const cx = r.left + st.x * r.width, cy = r.top + st.y * r.height;
+  gesture = {
+    st, kind, r, sx:e.clientX, sy:e.clientY, x0:st.x, y0:st.y, w0:st.w, r0:st.r, cx, cy,
+    d0: Math.hypot(e.clientX - cx, e.clientY - cy) || 1,
+    a0: Math.atan2(e.clientY - cy, e.clientX - cx)
+  };
+  try { st.el.setPointerCapture(e.pointerId); } catch(err){}
+  queueSticker(st);
+}
+document.addEventListener('pointermove', e => {
+  if (!gesture) return;
+  const g = gesture, st = g.st;
+  if (g.kind === 'move'){
+    st.x = unit(g.x0 + (e.clientX - g.sx) / g.r.width);
+    st.y = unit(g.y0 + (e.clientY - g.sy) / g.r.height);
+  } else if (g.kind === 'scale'){
+    st.w = clampN(g.w0 * Math.hypot(e.clientX - g.cx, e.clientY - g.cy) / g.d0, 0.02, 1.5, st.w);
+  } else {
+    let a = g.r0 + Math.atan2(e.clientY - g.cy, e.clientX - g.cx) - g.a0;
+    if (e.shiftKey){ const step = Math.PI / 12; a = Math.round(a / step) * step; }
+    st.r = a;
+  }
+  layoutSticker(st); queueSticker(st);
+});
+['pointerup', 'pointercancel'].forEach(t => document.addEventListener(t, () => {
+  if (gesture){ flushStickers(); gesture = null; }
+}));
+document.addEventListener('pointerdown', e => {
+  if (selectedSticker && !(e.target.closest && e.target.closest('.sticker'))) selectSticker(null);
+});
+document.addEventListener('keydown', e => {
+  if (!selectedSticker || (e.key !== 'Delete' && e.key !== 'Backspace')) return;
+  const a = document.activeElement;
+  if (a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA' || a === overlay)) return;
+  e.preventDefault();
+  send({ type:'stkDel', id:selectedSticker });
+});
+function queueSticker(st){
+  stkPending.add(st.id);
+  if (!stkTimer) stkTimer = setTimeout(flushStickers, 50);
+}
+function flushStickers(){
+  clearTimeout(stkTimer); stkTimer = 0;
+  for (const id of stkPending){
+    const st = stickers.get(id);
+    if (st) send({ type:'stk', id, x:+st.x.toFixed(4), y:+st.y.toFixed(4), w:+st.w.toFixed(4), r:+st.r.toFixed(4), z:st.z });
+  }
+  stkPending.clear();
+}
+
+// adding: button, paste, drag & drop
+async function addStickerFile(file){
+  if (!file || !roomCode) return;
+  if (!file.type.startsWith('image/')) return sys('That file isn\'t an image.');
+  if (file.type === 'image/gif' && await addGifFile(file) !== false) return;
+  let bmp;
+  try { bmp = await createImageBitmap(file); } catch(e){ return sys('That image could not be read.'); }
+  let src = '', side = 512, q = 0.85;
+  for (let i = 0; i < 5; i++){
+    const k = Math.min(1, side / Math.max(bmp.width, bmp.height));
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(bmp.width * k)); c.height = Math.max(1, Math.round(bmp.height * k));
+    c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+    src = c.toDataURL('image/webp', q);
+    if (!src.startsWith('data:image/webp')) src = c.toDataURL('image/png');
+    if (src.length <= 300000) break;
+    side = Math.round(side * 0.75); q = Math.max(0.5, q - 0.1);
+  }
+  if (src.length > MAX_SRC) return sys('That image is too big to share.');
+  placeSticker(src, bmp.width, bmp.height);
+}
+function placeSticker(src, width, height){
+  if (!roomCode || !okSrc(src)) return;
+  const a = clampN(height / width, 0.05, 20, 1);
+  const r = contentRect();
+  let w = 0.25;
+  if (w * r.width * a > 0.45 * r.height) w = Math.max(0.02, 0.45 * r.height / (a * r.width));
+  send({ type:'sticker', id: myId + '-s' + (++stickerN) + '-' + Date.now().toString(36),
+         src, a, x:0.5, y:0.5, w, r:0, z:++topZ, mode });
+}
+// Animated GIF files are sent as-is so they keep moving.
+function readAsDataUrl(file){
+  return new Promise((ok, fail) => { const fr = new FileReader(); fr.onload = () => ok(fr.result); fr.onerror = fail; fr.readAsDataURL(file); });
+}
+async function addGifFile(file){
+  let bmp;
+  try { bmp = await createImageBitmap(file); } catch(e){ return sys('That GIF could not be read.'); }
+  if (file.size > MAX_GIF_BYTES){
+    sys('That GIF is too big to send animated (max ~1.4 MB), so it was added as a still image. Paste a link to it instead to keep it moving.');
+    return false;
+  }
+  const src = await readAsDataUrl(file).catch(() => '');
+  if (!src) return sys('That GIF could not be read.');
+  placeSticker(String(src), bmp.width, bmp.height);
+  return true;
+}
+function looksLikeUrl(text){ return /^https?:\/\/\S+$/i.test(text) && text.length <= MAX_URL; }
+function addStickerUrl(url){
+  if (!roomCode || !okSrc(url)) return;
+  const img = new Image();
+  img.referrerPolicy = 'no-referrer';
+  img.onload = () => placeSticker(url, img.naturalWidth || 1, img.naturalHeight || 1);
+  img.onerror = () => sys('That link didn\'t load as an image. It may have expired, need a login, or not be a direct image link.');
+  img.src = url;
+}
+$('#stickerBtn').onclick = () => $('#stickerFile').click();
+$('#stickerFile').onchange = e => { addStickerFile(e.target.files[0]); e.target.value = ''; };
+document.addEventListener('paste', e => {
+  if (!roomCode || !e.clipboardData) return;
+  const item = [...e.clipboardData.items].find(i => i.kind === 'file' && i.type.startsWith('image/'));
+  if (item){ e.preventDefault(); addStickerFile(item.getAsFile()); return; }
+  // A pasted link becomes a sticker, unless you're typing in a text box.
+  const a = document.activeElement;
+  if (a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA')) return;
+  const text = (e.clipboardData.getData('text') || '').trim();
+  if (looksLikeUrl(text)){ e.preventDefault(); addStickerUrl(text); }
+});
+const stageEl = $('#stage');
+stageEl.addEventListener('dragover', e => {
+  const types = [...e.dataTransfer.types];
+  if (!types.includes('Files') && !types.includes('text/uri-list')) return;
+  e.preventDefault(); stageEl.classList.add('dropping');
+});
+stageEl.addEventListener('dragleave', () => stageEl.classList.remove('dropping'));
+stageEl.addEventListener('drop', e => {
+  stageEl.classList.remove('dropping');
+  const f = [...e.dataTransfer.files].find(f => f.type.startsWith('image/'));
+  if (f){ e.preventDefault(); addStickerFile(f); return; }
+  const link = (e.dataTransfer.getData('text/uri-list') || '').split(/\r?\n/).find(l => l && !l.startsWith('#'))
+    || (e.dataTransfer.getData('text/plain') || '').trim();
+  if (looksLikeUrl(link)){ e.preventDefault(); addStickerUrl(link); }
+});
+
+// ---------- chat ----------
+function addLine(node){ const log = $('#log'); log.append(node); log.scrollTop = log.scrollHeight; }
+function addChat(from, text){
+  const p = people[from] || { name:'Someone', color:'#ccc' };
+  const d = document.createElement('div'); d.className = 'msg';
+  const b = document.createElement('b'); b.textContent = p.name + ':'; b.style.color = p.color;
+  d.append(b, document.createTextNode(text)); addLine(d);
+}
+function sys(text){ const d = document.createElement('div'); d.className = 'sys'; d.textContent = text; addLine(d); }
+$('#chatForm').onsubmit = e => {
+  e.preventDefault();
+  const t = $('#chatInput').value.trim(); if (!t) return;
+  send({ type:'chat', text:t }); $('#chatInput').value = '';
+};
+
+// ---------- misc ----------
+$('#fsBtn').onclick = () => {
+  if (document.fullscreenElement) document.exitFullscreen();
+  else $('#stage').requestFullscreen && $('#stage').requestFullscreen();
+};
+window.addEventListener('beforeunload', () => { try { peer && peer.destroy(); } catch(e){} });
+</script>
+</body>
+</html>
