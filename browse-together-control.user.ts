@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Browse Together – Tab Control
 // @namespace    browse-together
-// @version      2.3.1
+// @version      2.4.0
 // @homepageURL  https://github.com/4kGoat/browse-together
 // @updateURL    https://raw.githubusercontent.com/4kGoat/browse-together/main/browse-together-control.user.js
 // @downloadURL  https://raw.githubusercontent.com/4kGoat/browse-together/main/browse-together-control.user.js
@@ -31,6 +31,7 @@
  * then paste browse-together-control.user.js into Tampermonkey.
  */
 
+declare const GM_info: { script: { version: string } };
 declare function GM_registerMenuCommand(name: string, fn: () => void): unknown;
 declare function GM_getTab(cb: (tab: Record<string, unknown>) => void): void;
 declare function GM_saveTab(tab: Record<string, unknown>): void;
@@ -554,7 +555,7 @@ declare function GM_addValueChangeListener(
       window.postMessage({ bt: 'tabinfo', key, url: String(info.url || ''), title: String(info.title || '') }, '*');
     };
     const ready = () => {
-      window.postMessage({ bt: 'bridge-ready', key }, '*');
+      window.postMessage({ bt: 'bridge-ready', key, version: GM_info.script.version }, '*');
       setTimeout(() => sendTabInfo(GM_getValue<unknown>('bt-tabinfo', null)), 50);
     };
     GM_addValueChangeListener('bt-tabinfo', (_n, _o, v) => sendTabInfo(v));
