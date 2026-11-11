@@ -32,6 +32,11 @@ input:focus{border-color:var(--accent)}
 .row{display:flex;gap:8px}
 .or{text-align:center;color:var(--muted);margin:16px 0 4px;font-size:13px}
 #status{margin-top:14px;color:var(--muted);min-height:1.4em;font-size:14px}
+a{color:var(--accent)}
+.extra{margin-top:18px;padding-top:14px;border-top:1px solid var(--line);font-size:13px;color:var(--muted)}
+.extra a{font-weight:600}
+a.btnlink{display:inline-flex;align-items:center;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-weight:600;font-size:14px;color:var(--text);text-decoration:none}
+a.btnlink:hover{filter:brightness(1.12)}
 
 /* Room */
 #room{height:100%;display:grid;grid-template-rows:auto auto 1fr;grid-template-columns:1fr 290px}
@@ -109,6 +114,13 @@ aside{grid-column:2;grid-row:2/4;display:flex;flex-direction:column;background:v
       <button id="joinBtn" class="ghost">Join</button>
     </div>
     <div id="status"></div>
+    <div class="extra">
+      🎮 Want friends to click and type in the tab you share? Install
+      <a href="https://www.tampermonkey.net/" target="_blank" rel="noopener">Tampermonkey</a>, then the
+      <a href="https://raw.githubusercontent.com/4kGoat/browse-together/main/browse-together-control.user.js" target="_blank" rel="noopener">control script</a>.
+      Only the person sharing needs it.
+      <a href="https://github.com/4kGoat/browse-together#letting-friends-control-the-shared-tab-host-only" target="_blank" rel="noopener">How it works</a>
+    </div>
   </div>
 </div>
 
@@ -118,6 +130,7 @@ aside{grid-column:2;grid-row:2/4;display:flex;flex-direction:column;background:v
     <span style="color:var(--muted)">Room</span>
     <span class="code" id="roomCode"></span>
     <button class="ghost" id="copyBtn">Copy invite</button>
+    <a class="btnlink" id="scriptLink" href="https://raw.githubusercontent.com/4kGoat/browse-together/main/browse-together-control.user.js" target="_blank" rel="noopener" title="Install the Tampermonkey control script so the room can control your shared tab">🧩 Get control script</a>
     <button class="ghost" id="controlBtn" hidden title="Let guests click, scroll and type in the shared tab">🎮 Guest control: Off</button>
     <div id="people"></div>
     <div class="tabs">
@@ -503,6 +516,7 @@ function updateShareUI(){
     ? (sharer === myId ? 'Everyone sees what you share. Their pointers appear on your preview here.' : nameOf(sharer) + ' is sharing. Click on the picture to point things out.')
     : '';
   if (hasBridge) info += ' ✅ Control script found on this page.';
+  $('#scriptLink').hidden = hasBridge;
   if (hasTab()){
     if (control) info += ' 🎮 Everyone can control: click the picture, then use mouse, wheel and keyboard.';
     else if (isHost) info += ' 🎮 You can control the tab: click the picture. Guests can\'t until you turn on Guest control.';
