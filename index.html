@@ -96,12 +96,17 @@ a{color:var(--peri)}
 
 #toolbar{grid-column:1;min-width:0;display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 12px;
   background:var(--panel);border-bottom:1px solid var(--line)}
-#screenTools,#urlForm{display:flex;align-items:center;gap:6px;flex:1 1 560px;min-width:min(560px,100%)}
+#screenTools,#urlForm{display:flex;align-items:center;gap:6px;min-width:0}
+#screenTools{flex:0 1 auto}
+#screenTools.wide,#urlForm{flex:1 1 560px;min-width:min(560px,100%)}
 #navForm{display:flex;align-items:center;gap:4px;flex:1;min-width:0}
 #navInput,#urlInput{flex:1;min-width:90px}
 .tools{display:flex;align-items:center;gap:6px;margin-left:auto}
 #drawTools{display:flex;align-items:center;gap:6px;padding-left:8px;margin-left:2px;border-left:1px solid var(--line)}
 .pen{width:var(--s,8px);height:var(--s,8px);border-radius:50%;background:currentColor;flex:none}
+/* Volume */
+.vol{display:flex;align-items:center;gap:2px}
+#volSlider{width:110px;height:20px;margin:0 6px 0 0;accent-color:var(--gold);cursor:pointer;background:transparent}
 #sizeBtn[data-size="S"] .pen{--s:4px} #sizeBtn[data-size="M"] .pen{--s:8px} #sizeBtn[data-size="L"] .pen{--s:13px}
 
 #stage{grid-column:1;min-width:0;min-height:0;position:relative;background:var(--stage);overflow:hidden}
@@ -163,6 +168,7 @@ aside{grid-column:2;grid-row:2/5;min-height:0;min-width:0;display:flex;flex-dire
   .top-right{margin-left:0}
   aside{grid-column:1;grid-row:5;border-left:0;border-top:1px solid var(--line)}
   .tools .lbl{display:none}
+  #volSlider{width:80px}
   #screenTools{flex-wrap:wrap}
   #navForm{flex-basis:100%}
 }
@@ -186,6 +192,7 @@ aside{grid-column:2;grid-row:2/5;min-height:0;min-width:0;display:flex;flex-dire
   <symbol id="i-send" viewBox="0 0 24 24"><path d="M4 12 20 4l-6 16-3-7z"/></symbol>
   <symbol id="i-plug" viewBox="0 0 24 24"><path d="M9 3v4M15 3v4M7 7h10v4a5 5 0 0 1-10 0zM12 16v5"/></symbol>
   <symbol id="i-sound" viewBox="0 0 24 24"><path d="M4 10v4h4l5 4V6L8 10zM17 9a4 4 0 0 1 0 6"/></symbol>
+  <symbol id="i-mute" viewBox="0 0 24 24"><path d="M4 10v4h4l5 4V6L8 10zM17 10l4 4M21 10l-4 4"/></symbol>
 </svg>
 
 <!-- LOBBY -->
@@ -255,6 +262,10 @@ aside{grid-column:2;grid-row:2/5;min-height:0;min-width:0;display:flex;flex-dire
         <button class="btn" id="sizeBtn" data-size="M" title="Change pen size"><span class="pen"></span><span class="lbl">Medium</span></button>
         <button class="btn icon" id="undoBtn" title="Undo your last line (Ctrl+Z)" aria-label="Undo"><svg class="ic"><use href="#i-undo"/></svg></button>
         <button class="btn icon" id="clearBtn" title="Clear all drawings for everyone" aria-label="Clear drawings"><svg class="ic"><use href="#i-trash"/></svg></button>
+      </div>
+      <div class="vol" id="volume" hidden>
+        <button class="btn icon quiet" id="muteBtn" title="Mute" aria-label="Mute"><svg class="ic"><use href="#i-sound"/></svg></button>
+        <input type="range" id="volSlider" min="0" max="1" step="0.01" value="1" aria-label="Volume" title="Volume">
       </div>
       <button class="btn icon quiet" id="fsBtn" title="Full screen" aria-label="Full screen"><svg class="ic"><use href="#i-expand"/></svg></button>
     </div>
@@ -652,6 +663,7 @@ function updateShareUI(){
   link.classList.toggle('warn', scriptOutdated());
   link.querySelector('.lbl').textContent = scriptOutdated() ? 'Update tab control' : 'Set up tab control';
   $('#navForm').hidden = !canNavigate();
+  $('#screenTools').classList.toggle('wide', canNavigate());
 }
 $('#shareBtn').onclick = () => localStream ? stopShare(false) : startShare();
 
@@ -699,13 +711,49 @@ function answerCall(call){
 }
 function showStream(stream, isLocal){
   video.srcObject = stream;
-  video.muted = isLocal;
+  video.muted = isLocal;            // never play your own tab back to yourself
+  if (!isLocal) video.volume = volumeLevel;
   $('#unmute').hidden = true;
   video.play().catch(() => { video.muted = true; video.play().catch(()=>{}); $('#unmute').hidden = isLocal; });
   updatePlaceholder();
+  updateVolumeUI();
 }
-function clearVideo(){ video.srcObject = null; $('#unmute').hidden = true; updatePlaceholder(); }
-$('#unmute').onclick = () => { video.muted = false; video.play(); $('#unmute').hidden = true; };
+function clearVideo(){ video.srcObject = null; $('#unmute').hidden = true; updatePlaceholder(); updateVolumeUI(); }
+$('#unmute').onclick = () => { video.muted = false; if (!video.volume) video.volume = volumeLevel || 0.5; video.play(); $('#unmute').hidden = true; };
+
+// ---------- volume (only for people watching someone else's tab) ----------
+let volumeLevel = 1;
+try { const v = parseFloat(localStorage.getItem('bt-volume')); if (v >= 0 && v <= 1) volumeLevel = v; } catch(e){}
+function updateVolumeUI(){
+  const watching = !!video.srcObject && !localStream;
+  $('#volume').hidden = !watching;
+  if (!watching) return;
+  const silent = video.muted || video.volume === 0;
+  $('#volSlider').value = silent ? 0 : video.volume;
+  $('#muteBtn use').setAttribute('href', silent ? '#i-mute' : '#i-sound');
+  $('#muteBtn').title = silent ? 'Unmute' : 'Mute';
+  $('#muteBtn').setAttribute('aria-label', silent ? 'Unmute' : 'Mute');
+}
+function rememberVolume(v){ volumeLevel = v; try { localStorage.setItem('bt-volume', String(v)); } catch(e){} }
+$('#volSlider').addEventListener('input', e => {
+  const v = Number(e.target.value);
+  video.volume = v;
+  video.muted = v === 0;
+  if (v > 0){ rememberVolume(v); $('#unmute').hidden = true; video.play().catch(()=>{}); }
+  updateVolumeUI();
+});
+$('#muteBtn').onclick = () => {
+  if (video.muted || video.volume === 0){
+    video.muted = false;
+    if (video.volume === 0) video.volume = volumeLevel || 0.5;
+    $('#unmute').hidden = true;
+    video.play().catch(()=>{});
+  } else {
+    video.muted = true;
+  }
+  updateVolumeUI();
+};
+video.addEventListener('volumechange', updateVolumeUI);
 
 // ---------- shared page ----------
 function safeUrl(u){

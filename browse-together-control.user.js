@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Browse Together – Tab Control
 // @namespace    browse-together
-// @version      2.5.0
+// @version      2.5.1
 // @homepageURL  https://github.com/4kGoat/browse-together
 // @updateURL    https://raw.githubusercontent.com/4kGoat/browse-together/main/browse-together-control.user.js
 // @downloadURL  https://raw.githubusercontent.com/4kGoat/browse-together/main/browse-together-control.user.js
@@ -659,7 +659,7 @@
         offer = { room: String(o.room || '').slice(0, 12) };
         setBadge('You\'re sharing this tab' + (offer.room ? ' in room ' + offer.room : '') + '. Let the room control it?', 'offer', [
             { label: 'Connect', primary: true, run: () => { offer = null; choose(); } },
-            { label: 'Not now', run: () => { offer = null; dismissed = true; refreshBadge(); } },
+            { label: 'Not now', run: () => { offer = null; dismissed = true; GM_saveTab({ notNow: true }); refreshBadge(); } },
         ]);
     }
     function choose() {
@@ -696,15 +696,19 @@
             refreshBadge(); });
         GM_addValueChangeListener('bt-input', (_n, _o, v) => onInputBatch(v));
         GM_addValueChangeListener('bt-offer', (_n, _o, v) => onOffer(v));
-        advertise();
         setInterval(() => { if (myToken)
             refreshBadge(); }, 3000);
         setInterval(reportTab, 1000);
         // Resume after this tab navigates to a new page.
+        // Check first whether this tab is already linked, *then* tell the room its ID.
+        // Otherwise a linked tab that just loaded a new page would get the Connect prompt again.
         GM_getTab(tab => {
             const t = tab && typeof tab.token === 'string' ? tab.token : '';
-            if (!t)
+            dismissed = !!(tab && tab.notNow);
+            if (!t) {
+                advertise();
                 return;
+            }
             myToken = t;
             active = GM_getValue('bt-target', '') === t;
             readState(GM_getValue('bt-state', null));
@@ -715,6 +719,7 @@
             }
             refreshBadge();
             reportTab();
+            advertise();
         });
     }
     function startBridge() {
