@@ -5,191 +5,280 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="browse-together" content="1">
 <title>Browse Together</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600..800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#0e141c; --panel:#16202b; --panel2:#1d2a38; --line:#2a3a4c;
-  --text:#e6eef6; --muted:#8fa3b8; --accent:#6cc4ff; --accent2:#3a8fd0; --danger:#ff6b6b;
+  --bg:#1a1625; --stage:#0f0c17; --panel:#231e31; --panel2:#2c2640; --raise:#3a3254; --line:#3a3252;
+  --text:#efeaff; --muted:#a49bbf; --faint:#7d7499;
+  --gold:#ffc24b; --gold-hi:#ffd27a; --gold-ink:#2b1d00; --peri:#93a5ff; --danger:#ff6f7d; --ok:#83dba8;
+  --accent:var(--peri);
+  --r-sm:9px; --r-md:12px;
+  --display:'Bricolage Grotesque','Figtree',system-ui,sans-serif;
+  --ui:'Figtree',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
 }
 *{box-sizing:border-box}
-html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:15px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:14px/1.45 var(--ui);-webkit-font-smoothing:antialiased}
 button,input{font:inherit;color:inherit}
-button{background:var(--accent2);border:0;border-radius:8px;padding:8px 14px;cursor:pointer;font-weight:600}
-button:hover{filter:brightness(1.12)}
-button.ghost{background:var(--panel2);border:1px solid var(--line)}
-button.on{background:var(--accent);color:#06121e}
-button:disabled{opacity:.45;cursor:not-allowed}
-input{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;outline:none;min-width:0}
-input:focus{border-color:var(--accent)}
 [hidden]{display:none!important}
+.ic{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+
+/* Controls */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;height:36px;padding:0 13px;border-radius:var(--r-sm);
+  border:1px solid var(--line);background:var(--panel2);color:var(--text);font-weight:600;font-size:13.5px;cursor:pointer;
+  white-space:nowrap;text-decoration:none;transition:background .12s,border-color .12s,color .12s}
+.btn:hover{background:var(--raise)}
+.btn.primary{background:var(--gold);border-color:var(--gold);color:var(--gold-ink)}
+.btn.primary:hover{background:var(--gold-hi);border-color:var(--gold-hi)}
+.btn.icon{width:36px;padding:0}
+.btn.quiet{background:transparent;border-color:transparent;color:var(--muted)}
+.btn.quiet:hover{background:var(--panel2);color:var(--text)}
+.btn.on{background:rgba(147,165,255,.16);border-color:var(--peri)}
+.btn.warn{border-color:var(--gold);color:var(--gold)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.field{height:36px;background:var(--bg);border:1px solid var(--line);border-radius:var(--r-sm);padding:0 12px;outline:none;min-width:0;color:var(--text)}
+.field::placeholder{color:var(--faint)}
+.field:focus{border-color:var(--peri)}
+.btn:focus-visible,.field:focus-visible,.seg button:focus-visible,.roomcode:focus-visible,.switch:focus-visible,a:focus-visible{outline:2px solid var(--peri);outline-offset:2px}
+a{color:var(--peri)}
 
 /* Lobby */
-#lobby{min-height:100%;display:flex;align-items:center;justify-content:center;padding:16px}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:26px;width:100%;max-width:380px}
-.card h1{margin:0 0 4px;font-size:24px}
-.card p{margin:0 0 18px;color:var(--muted)}
-.card label{display:block;font-size:13px;color:var(--muted);margin:12px 0 6px}
-.card input{width:100%}
-.row{display:flex;gap:8px}
-.or{text-align:center;color:var(--muted);margin:16px 0 4px;font-size:13px}
-#status{margin-top:14px;color:var(--muted);min-height:1.4em;font-size:14px}
-a{color:var(--accent)}
-.extra{margin-top:18px;padding-top:14px;border-top:1px solid var(--line);font-size:13px;color:var(--muted)}
-.extra a{font-weight:600}
-a.btnlink{display:inline-flex;align-items:center;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-weight:600;font-size:14px;color:var(--text);text-decoration:none}
-a.btnlink:hover{filter:brightness(1.12)}
+#lobby{min-height:100%;display:grid;place-items:center;padding:32px 18px}
+.lobby{width:100%;max-width:380px}
+.wordmark{font-family:var(--display);font-weight:800;font-size:clamp(46px,11vw,64px);line-height:.9;letter-spacing:-.035em;margin:0 0 16px}
+.wordmark span{display:block}
+.wordmark span + span{color:var(--gold)}
+.tagline{color:var(--muted);font-size:16px;margin:0 0 30px;max-width:30ch}
+.lobby label{display:block;font-size:13px;font-weight:600;color:var(--muted);margin:0 0 6px}
+.lobby .field{width:100%;height:46px;font-size:15px}
+.lobby .btn{height:46px;font-size:15px;padding:0 18px}
+#createBtn{width:100%;margin-top:12px}
+.divider{display:flex;align-items:center;gap:12px;color:var(--faint);font-size:13px;margin:24px 0 10px}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--line)}
+.joinrow{display:flex;gap:8px}
+#code{font-family:var(--display);font-weight:700;letter-spacing:.2em;text-transform:uppercase}
+#code::placeholder{font-family:var(--ui);font-weight:400;letter-spacing:normal;text-transform:none}
+#status{min-height:1.4em;margin-top:12px;color:var(--gold);font-size:13.5px}
+.lobby-note{margin-top:30px;padding-top:16px;border-top:1px solid var(--line);color:var(--muted);font-size:13px}
+.lobby-note a{font-weight:600}
 
-/* Room */
-#room{height:100%;width:100%;overflow:hidden;display:grid;grid-template-rows:auto auto minmax(0,1fr);grid-template-columns:minmax(0,1fr) 290px}
-header{grid-column:1/3;min-width:0;display:flex;align-items:center;gap:8px 10px;padding:8px 12px;background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
-.code{font-family:ui-monospace,monospace;font-size:18px;letter-spacing:2px;background:var(--bg);padding:4px 10px;border-radius:6px;border:1px solid var(--line)}
-.tabs{display:flex;gap:4px;margin-left:auto}
-#people{display:flex;gap:6px;flex-wrap:wrap}
-.chip{display:flex;align-items:center;gap:6px;background:var(--panel2);border-radius:20px;padding:3px 10px;font-size:13px}
-.dot{width:10px;height:10px;border-radius:50%}
-#toolbar{grid-column:1;min-width:0;display:flex;flex-wrap:wrap;gap:8px;padding:8px 12px;align-items:center;background:var(--panel);border-bottom:1px solid var(--line)}
-#urlForm{display:flex;gap:8px;flex:1}
-#urlInput{flex:1}
-#stage{grid-column:1;min-width:0;min-height:0;position:relative;background:#000;overflow:hidden}
+/* Room layout */
+#room{height:100%;width:100%;overflow:hidden;display:grid;
+  grid-template-columns:minmax(0,1fr) 300px;grid-template-rows:auto auto minmax(0,1fr) auto}
+.topbar{grid-column:1/3;min-width:0;display:flex;align-items:center;flex-wrap:wrap;gap:10px 14px;padding:10px 14px;
+  background:var(--panel);border-bottom:1px solid var(--line)}
+.brand{font-family:var(--display);font-weight:800;font-size:18px;letter-spacing:-.02em;white-space:nowrap}
+.roomcode{display:inline-flex;align-items:baseline;gap:10px;padding:3px 12px 4px;border-radius:var(--r-md);
+  border:1px dashed var(--line);background:var(--bg);color:var(--text);cursor:pointer}
+.roomcode:hover{border-color:var(--gold)}
+.roomcode .code{font-family:var(--display);font-weight:800;font-size:22px;letter-spacing:.14em}
+.roomcode .hint{font-size:12.5px;font-weight:600;color:var(--muted)}
+.roomcode:hover .hint{color:var(--gold)}
+#people{display:flex;flex-wrap:wrap;gap:6px;min-width:0}
+.chip{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border-radius:14px;background:var(--panel2);font-size:13px;font-weight:600}
+.chip .dot{width:9px;height:9px;border-radius:50%;flex:none}
+.chip .tag{font-size:11px;font-weight:700;color:var(--muted);background:var(--bg);padding:1px 7px;border-radius:7px}
+.chip .tag.live{color:var(--gold)}
+.top-right{margin-left:auto;display:flex;align-items:center;flex-wrap:wrap;gap:10px}
+.seg{display:inline-flex;padding:3px;border-radius:11px;background:var(--bg);border:1px solid var(--line)}
+.seg button{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;border:0;border-radius:8px;
+  background:transparent;color:var(--muted);font-weight:600;font-size:13px;cursor:pointer}
+.seg button:hover{color:var(--text)}
+.seg button.on{background:var(--raise);color:var(--text)}
+.switch{display:inline-flex;align-items:center;gap:9px;height:36px;padding:0 12px 0 9px;border-radius:var(--r-sm);
+  border:1px solid var(--line);background:var(--panel2);color:var(--text);font-weight:600;font-size:13.5px;cursor:pointer}
+.switch .track{position:relative;width:30px;height:18px;border-radius:9px;background:var(--line);transition:background .15s}
+.switch .track::after{content:'';position:absolute;left:2px;top:2px;width:14px;height:14px;border-radius:50%;background:var(--muted);transition:transform .15s,background .15s}
+.switch[aria-checked="true"]{border-color:var(--peri)}
+.switch[aria-checked="true"] .track{background:var(--peri)}
+.switch[aria-checked="true"] .track::after{transform:translateX(12px);background:#fff}
+
+#toolbar{grid-column:1;min-width:0;display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 12px;
+  background:var(--panel);border-bottom:1px solid var(--line)}
+#screenTools,#urlForm{display:flex;align-items:center;gap:6px;flex:1 1 560px;min-width:min(560px,100%)}
+#navForm{display:flex;align-items:center;gap:4px;flex:1;min-width:0}
+#navInput,#urlInput{flex:1;min-width:90px}
+.tools{display:flex;align-items:center;gap:6px;margin-left:auto}
+#drawTools{display:flex;align-items:center;gap:6px;padding-left:8px;margin-left:2px;border-left:1px solid var(--line)}
+.pen{width:var(--s,8px);height:var(--s,8px);border-radius:50%;background:currentColor;flex:none}
+#sizeBtn[data-size="S"] .pen{--s:4px} #sizeBtn[data-size="M"] .pen{--s:8px} #sizeBtn[data-size="L"] .pen{--s:13px}
+
+#stage{grid-column:1;min-width:0;min-height:0;position:relative;background:var(--stage);overflow:hidden}
 #video{width:100%;height:100%;object-fit:contain;display:block}
 #frame{width:100%;height:100%;border:0;background:#fff;display:block}
-#placeholder{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;color:var(--muted)}
-#placeholder div{max-width:420px}
+#placeholder{position:absolute;inset:0;display:grid;place-items:center;padding:28px;text-align:center}
+#placeholder .ph{max-width:440px}
+#phTitle{font-family:var(--display);font-weight:700;font-size:26px;letter-spacing:-.015em;line-height:1.15;margin:0 0 10px}
+#phText{color:var(--muted);font-size:15px;margin:0}
 #overlay{position:absolute;inset:0;z-index:5;outline:none}
-#overlay.ctl:focus{box-shadow:inset 0 0 0 3px var(--accent)}
-#unmute{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);z-index:9}
+#overlay.ctl:focus{box-shadow:inset 0 0 0 2px var(--peri)}
+#unmute{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);z-index:9}
+
+#statusbar{grid-column:1;min-width:0;min-height:34px;display:flex;flex-wrap:wrap;align-items:center;gap:4px 16px;
+  padding:7px 14px;background:var(--panel);border-top:1px solid var(--line);font-size:12.5px;color:var(--muted)}
+#statusbar .warn{color:var(--gold);font-weight:600}
+#statusbar .ok{color:var(--ok)}
+
+/* Cursors, clicks, drawing, stickers */
+.cursor{position:absolute;pointer-events:none;transform:translate(-2px,-2px);transition:left .06s linear,top .06s linear;z-index:8}
+.cursor svg{display:block;filter:drop-shadow(0 1px 2px #000a)}
+.cursor span{position:absolute;left:16px;top:14px;font-size:12px;font-weight:700;padding:1px 7px;border-radius:7px;color:#1a1625;white-space:nowrap}
+.ripple{position:absolute;width:44px;height:44px;margin:-22px 0 0 -22px;border-radius:50%;border:3px solid;pointer-events:none;animation:rip .7s ease-out forwards;z-index:8}
+@keyframes rip{from{transform:scale(.2);opacity:1}to{transform:scale(1.6);opacity:0}}
 #draw{position:absolute;left:0;top:0;z-index:7;pointer-events:none;touch-action:none}
+#draw.on{pointer-events:auto;cursor:crosshair}
 #stickers{position:absolute;inset:0;z-index:6;pointer-events:none;overflow:hidden}
 .sticker{position:absolute;pointer-events:auto;cursor:grab;touch-action:none;user-select:none}
 .sticker:active{cursor:grabbing}
 .sticker img{width:100%;height:100%;display:block;pointer-events:none;-webkit-user-drag:none}
 .sticker .h{display:none;position:absolute}
-.sticker.sel{outline:2px dashed var(--accent);outline-offset:3px}
+.sticker.sel{outline:2px dashed var(--peri);outline-offset:3px}
 .sticker.sel .h{display:block}
-.sticker .rot{left:50%;top:-34px;width:18px;height:18px;margin-left:-9px;border-radius:50%;background:var(--accent);border:2px solid #fff;cursor:grab}
-.sticker .rot::after{content:'';position:absolute;left:50%;top:16px;width:2px;height:14px;margin-left:-1px;background:var(--accent)}
-.sticker .scale{right:-10px;bottom:-10px;width:18px;height:18px;background:#fff;border:2px solid var(--accent);border-radius:4px;cursor:nwse-resize}
-.sticker .del{right:-13px;top:-13px;width:26px;height:26px;padding:0;border-radius:50%;background:var(--danger);color:#fff;font-size:17px;line-height:1}
-#stage.dropping{box-shadow:inset 0 0 0 3px var(--accent)}
-#draw.on{pointer-events:auto;cursor:crosshair}
-#drawTools{display:flex;gap:6px}
-#screenTools{min-width:0;flex:1 1 360px}
-#urlForm{flex:1 1 360px}
-#shareInfo{flex:0 1 auto;min-width:0;max-width:38%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#navForm{display:flex;gap:4px;flex:1;min-width:0}
-#navForm button{padding:8px 10px}
-#navInput{flex:1;min-width:80px}
-.cursor{position:absolute;pointer-events:none;transform:translate(-2px,-2px);transition:left .06s linear,top .06s linear;z-index:8}
-.cursor svg{display:block;filter:drop-shadow(0 1px 2px #000a)}
-.cursor span{position:absolute;left:16px;top:14px;font-size:12px;font-weight:700;padding:1px 6px;border-radius:6px;color:#06121e;white-space:nowrap}
-.ripple{position:absolute;width:44px;height:44px;margin:-22px 0 0 -22px;border-radius:50%;border:3px solid;pointer-events:none;animation:rip .7s ease-out forwards;z-index:8}
-@keyframes rip{from{transform:scale(.2);opacity:1}to{transform:scale(1.6);opacity:0}}
+.sticker .rot{left:50%;top:-34px;width:18px;height:18px;margin-left:-9px;border-radius:50%;background:var(--peri);border:2px solid #fff;cursor:grab}
+.sticker .rot::after{content:'';position:absolute;left:50%;top:16px;width:2px;height:14px;margin-left:-1px;background:var(--peri)}
+.sticker .scale{right:-10px;bottom:-10px;width:18px;height:18px;background:#fff;border:2px solid var(--peri);border-radius:4px;cursor:nwse-resize}
+.sticker .del{right:-13px;top:-13px;width:26px;height:26px;padding:0;border:0;border-radius:50%;background:var(--danger);color:#fff;font-size:17px;line-height:1;cursor:pointer}
+#stage.dropping{box-shadow:inset 0 0 0 3px var(--gold)}
+@media (prefers-reduced-motion:reduce){.ripple,.cursor,.switch .track,.switch .track::after{animation:none;transition:none}}
 
 /* Chat */
-aside{grid-column:2;grid-row:2/4;display:flex;flex-direction:column;background:var(--panel);border-left:1px solid var(--line);min-height:0;min-width:0}
-#log{overflow-wrap:anywhere}
-#log{flex:1;overflow-y:auto;padding:10px 12px;display:flex;flex-direction:column;gap:6px}
-.msg b{margin-right:4px}
-.sys{color:var(--muted);font-style:italic;font-size:13px}
+aside{grid-column:2;grid-row:2/5;min-height:0;min-width:0;display:flex;flex-direction:column;background:var(--panel);border-left:1px solid var(--line)}
+.chat-title{padding:12px 14px 4px;font-family:var(--display);font-weight:700;font-size:15px}
+#log{flex:1;overflow-y:auto;overflow-wrap:anywhere;padding:6px 14px 12px;display:flex;flex-direction:column;gap:9px}
+.msg b{display:block;font-size:12.5px;line-height:1.3}
+.sys{color:var(--faint);font-size:12.5px}
 #chatForm{display:flex;gap:6px;padding:10px;border-top:1px solid var(--line)}
 #chatInput{flex:1}
 
 @media (max-width:1100px){
-  #room{grid-template-columns:minmax(0,1fr) 230px}
-  #shareInfo{display:none}
+  #room{grid-template-columns:minmax(0,1fr) 250px}
   #screenTools,#urlForm{flex-basis:100%}
+  .roomcode .hint{display:none}
 }
 @media (max-width:760px){
-  #room{grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto 55vh minmax(0,1fr)}
-  header{grid-column:1}
-  aside{grid-column:1;grid-row:4;border-left:0;border-top:1px solid var(--line)}
+  #room{grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto 52vh auto minmax(0,1fr)}
+  .topbar{grid-column:1}
+  .brand{display:none}
+  .top-right{margin-left:0}
+  aside{grid-column:1;grid-row:5;border-left:0;border-top:1px solid var(--line)}
+  .tools .lbl{display:none}
+  #screenTools{flex-wrap:wrap}
+  #navForm{flex-basis:100%}
 }
 </style>
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-share" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M12 14V8m-3 3 3-3 3 3M8 21h8"/></symbol>
+  <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></symbol>
+  <symbol id="i-fwd" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></symbol>
+  <symbol id="i-reload" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.34-5.66M20 4v5h-5"/></symbol>
+  <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></symbol>
+  <symbol id="i-pen" viewBox="0 0 24 24"><path d="M4 20l4-1 11-11a2.12 2.12 0 0 0-3-3L5 16l-1 4z"/></symbol>
+  <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></symbol>
+  <symbol id="i-expand" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></symbol>
+  <symbol id="i-tab" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></symbol>
+  <symbol id="i-point" viewBox="0 0 24 24"><path d="M5 3l14 7-6 2-2 6z"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="M4 12 20 4l-6 16-3-7z"/></symbol>
+  <symbol id="i-plug" viewBox="0 0 24 24"><path d="M9 3v4M15 3v4M7 7h10v4a5 5 0 0 1-10 0zM12 16v5"/></symbol>
+  <symbol id="i-sound" viewBox="0 0 24 24"><path d="M4 10v4h4l5 4V6L8 10zM17 9a4 4 0 0 1 0 6"/></symbol>
+</svg>
 
 <!-- LOBBY -->
-<div id="lobby">
-  <div class="card">
-    <h1>Browse Together</h1>
-    <p>Make a room, send the code to your friends, and look at the web together.</p>
+<main id="lobby">
+  <div class="lobby">
+    <h1 class="wordmark"><span>Browse</span><span>Together</span></h1>
+    <p class="tagline">Share a tab with friends, watch it live, and take turns driving.</p>
     <label for="name">Your name</label>
-    <input id="name" maxlength="20" placeholder="Player">
-    <div style="margin-top:16px"><button id="createBtn" style="width:100%">Create a room</button></div>
-    <div class="or">or join a friend</div>
-    <div class="row">
-      <input id="code" maxlength="5" placeholder="ROOM CODE" style="text-transform:uppercase;flex:1">
-      <button id="joinBtn" class="ghost">Join</button>
+    <input class="field" id="name" maxlength="20" placeholder="What should friends call you?" autocomplete="nickname">
+    <button class="btn primary" id="createBtn">Start a room</button>
+    <div class="divider">or join with a code</div>
+    <div class="joinrow">
+      <input class="field" id="code" maxlength="5" placeholder="Room code" aria-label="Room code" autocomplete="off" spellcheck="false">
+      <button class="btn" id="joinBtn">Join</button>
     </div>
-    <div id="status"></div>
-    <div class="extra">
-      🎮 Want friends to click and type in the tab you share? Install
-      <a href="https://www.tampermonkey.net/" target="_blank" rel="noopener">Tampermonkey</a>, then the
-      <a href="https://raw.githubusercontent.com/4kGoat/browse-together/main/browse-together-control.user.js" target="_blank" rel="noopener">control script</a>.
-      Only the person sharing needs it.
+    <div id="status" role="status"></div>
+    <p class="lobby-note">
+      Want friends to click and type in the tab you share?
+      <a href="https://raw.githubusercontent.com/4kGoat/browse-together/main/browse-together-control.user.js" target="_blank" rel="noopener">Set up tab control</a>
+      (needs <a href="https://www.tampermonkey.net/" target="_blank" rel="noopener">Tampermonkey</a>). Only the person sharing needs it.
       <a href="https://github.com/4kGoat/browse-together#letting-friends-control-the-shared-tab-host-only" target="_blank" rel="noopener">How it works</a>
-    </div>
+    </p>
   </div>
-</div>
+</main>
 
 <!-- ROOM -->
 <div id="room" hidden>
-  <header>
-    <span style="color:var(--muted)">Room</span>
-    <span class="code" id="roomCode"></span>
-    <button class="ghost" id="copyBtn">Copy invite</button>
-    <a class="btnlink" id="scriptLink" href="https://raw.githubusercontent.com/4kGoat/browse-together/main/browse-together-control.user.js" target="_blank" rel="noopener" title="Install the Tampermonkey control script so the room can control your shared tab">🧩 Get control script</a>
-    <button class="ghost" id="controlBtn" hidden title="Let guests click, scroll and type in the shared tab">🎮 Guest control: Off</button>
-    <div id="people"></div>
-    <div class="tabs">
-      <button class="ghost" data-mode="screen">📺 Screen share</button>
-      <button class="ghost" data-mode="page">🌐 Shared page</button>
+  <header class="topbar">
+    <span class="brand">Browse Together</span>
+    <button class="roomcode" id="copyBtn" title="Copy a link friends can open to join">
+      <span class="code" id="roomCode"></span><span class="hint">Copy invite link</span>
+    </button>
+    <div id="people" aria-label="People in the room"></div>
+    <div class="top-right">
+      <a class="btn" id="scriptLink" href="https://raw.githubusercontent.com/4kGoat/browse-together/main/browse-together-control.user.js" target="_blank" rel="noopener"
+         title="Install the Tampermonkey script that lets the room click and type in your shared tab"><svg class="ic"><use href="#i-plug"/></svg><span class="lbl">Set up tab control</span></a>
+      <button class="switch" id="controlBtn" role="switch" aria-checked="false" hidden
+         title="Let everyone in the room click, scroll, type and open sites in the shared tab. You can always control it."><span class="track"></span><span>Let friends control</span></button>
+      <div class="seg" role="tablist" aria-label="What everyone sees">
+        <button data-mode="screen" title="Watch a tab someone shares"><svg class="ic"><use href="#i-tab"/></svg>Shared tab</button>
+        <button data-mode="page" title="Load a website inside the room for everyone"><svg class="ic"><use href="#i-globe"/></svg>Embedded site</button>
+      </div>
     </div>
   </header>
 
   <div id="toolbar">
-    <div id="screenTools" class="row" style="align-items:center">
-      <button id="shareBtn">Share a tab</button>
-      <form id="navForm" hidden title="Changes the site in the controlled tab">
-        <button type="button" class="ghost" id="navBack" title="Back">◀</button>
-        <button type="button" class="ghost" id="navFwd" title="Forward">▶</button>
-        <button type="button" class="ghost" id="navReload" title="Reload">⟳</button>
-        <input id="navInput" placeholder="Go to a website in the shared tab…" autocomplete="off" spellcheck="false">
-        <button type="submit">Go</button>
+    <div id="screenTools">
+      <button class="btn primary" id="shareBtn"><svg class="ic"><use href="#i-share"/></svg><span class="lbl">Share my tab</span></button>
+      <form id="navForm" hidden title="Opens sites in the shared tab">
+        <button type="button" class="btn icon quiet" id="navBack" title="Back" aria-label="Back"><svg class="ic"><use href="#i-back"/></svg></button>
+        <button type="button" class="btn icon quiet" id="navFwd" title="Forward" aria-label="Forward"><svg class="ic"><use href="#i-fwd"/></svg></button>
+        <button type="button" class="btn icon quiet" id="navReload" title="Reload" aria-label="Reload"><svg class="ic"><use href="#i-reload"/></svg></button>
+        <input class="field" id="navInput" placeholder="Open a site in the shared tab" autocomplete="off" spellcheck="false" aria-label="Address of the shared tab">
+        <button type="submit" class="btn">Open</button>
       </form>
-      <span id="shareInfo" style="color:var(--muted);font-size:13px"></span>
     </div>
     <form id="urlForm" hidden>
-      <input id="urlInput" placeholder="Type a website or search Wikipedia…">
-      <button type="submit">Go for everyone</button>
-      <button type="button" class="ghost" id="pointBtn" title="Point on the page without clicking it">👆 Point</button>
+      <input class="field" id="urlInput" placeholder="Paste a link to load it for everyone" aria-label="Website to embed">
+      <button type="submit" class="btn primary">Load for everyone</button>
+      <button type="button" class="btn" id="pointBtn" title="Point at things on the page without clicking them"><svg class="ic"><use href="#i-point"/></svg><span class="lbl">Point</span></button>
     </form>
-    <button class="ghost" id="stickerBtn" title="Add an image sticker. You can also paste (Ctrl+V) an image or an image link, or drop one here.">🖼 Sticker</button>
-    <input type="file" id="stickerFile" accept="image/*" hidden>
-    <button class="ghost" id="drawBtn" title="Draw on top of what everyone sees">✏️ Draw</button>
-    <span id="drawTools" hidden>
-      <button class="ghost" id="sizeBtn" title="Pen size">● M</button>
-      <button class="ghost" id="undoBtn" title="Undo your last line">↩ Undo</button>
-      <button class="ghost" id="clearBtn" title="Clear all drawings for everyone">🗑 Clear</button>
-    </span>
-    <button class="ghost" id="fsBtn" title="Fullscreen">⛶</button>
+    <div class="tools">
+      <button class="btn" id="stickerBtn" title="Add an image for everyone. You can also paste an image or image link (Ctrl+V), or drop one onto the view."><svg class="ic"><use href="#i-image"/></svg><span class="lbl">Add sticker</span></button>
+      <input type="file" id="stickerFile" accept="image/*" hidden>
+      <button class="btn" id="drawBtn" title="Draw on top of what everyone sees"><svg class="ic"><use href="#i-pen"/></svg><span class="lbl">Draw</span></button>
+      <div id="drawTools" hidden>
+        <button class="btn" id="sizeBtn" data-size="M" title="Change pen size"><span class="pen"></span><span class="lbl">Medium</span></button>
+        <button class="btn icon" id="undoBtn" title="Undo your last line (Ctrl+Z)" aria-label="Undo"><svg class="ic"><use href="#i-undo"/></svg></button>
+        <button class="btn icon" id="clearBtn" title="Clear all drawings for everyone" aria-label="Clear drawings"><svg class="ic"><use href="#i-trash"/></svg></button>
+      </div>
+      <button class="btn icon quiet" id="fsBtn" title="Full screen" aria-label="Full screen"><svg class="ic"><use href="#i-expand"/></svg></button>
+    </div>
   </div>
 
   <div id="stage">
     <video id="video" playsinline autoplay></video>
     <iframe id="frame" hidden allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
       sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-presentation"></iframe>
-    <div id="placeholder"><div id="phText"></div></div>
+    <div id="placeholder"><div class="ph"><h2 id="phTitle"></h2><p id="phText"></p></div></div>
     <div id="overlay"></div>
     <div id="stickers"></div>
     <canvas id="draw"></canvas>
-    <button id="unmute" hidden>🔊 Click for sound</button>
+    <button class="btn primary" id="unmute" hidden><svg class="ic"><use href="#i-sound"/></svg>Turn on sound</button>
   </div>
 
+  <div id="statusbar" role="status"><span id="shareInfo"></span></div>
+
   <aside>
+    <div class="chat-title">Chat</div>
     <div id="log"></div>
     <form id="chatForm">
-      <input id="chatInput" placeholder="Say something…" maxlength="400">
-      <button>Send</button>
+      <input class="field" id="chatInput" placeholder="Message the room" maxlength="400" aria-label="Message">
+      <button class="btn primary icon" title="Send" aria-label="Send"><svg class="ic"><use href="#i-send"/></svg></button>
     </form>
   </aside>
 </div>
@@ -232,30 +321,30 @@ function randCode(){
   return Array.from({length:5}, () => a[Math.random()*a.length|0]).join('');
 }
 
-$('#createBtn').onclick = () => { if (!window.Peer) return setStatus('Could not load the connection library — check your internet.'); lobbyBusy(true); startHost(randCode()); };
+$('#createBtn').onclick = () => { if (!window.Peer) return setStatus('Couldn\'t connect. Check your internet and reload the page.'); lobbyBusy(true); startHost(randCode()); };
 $('#joinBtn').onclick = () => {
   const c = $('#code').value.trim().toUpperCase();
   if (!c) return setStatus('Type the room code first.');
-  if (!window.Peer) return setStatus('Could not load the connection library — check your internet.');
+  if (!window.Peer) return setStatus('Couldn\'t connect. Check your internet and reload the page.');
   lobbyBusy(true); startGuest(c);
 };
 $('#code').addEventListener('keydown', e => { if (e.key === 'Enter') $('#joinBtn').click(); });
 
 function handleErr(e){
-  if (e.type === 'peer-unavailable') setStatus('Room not found. Check the code (the host must keep their page open).');
-  else setStatus('Connection problem: ' + e.type);
+  if (e.type === 'peer-unavailable') setStatus('No room with that code. Check it, and make sure the host still has the room open.');
+  else setStatus('Couldn\'t connect (' + e.type + '). Try again in a moment.');
   lobbyBusy(false);
 }
 
 // ---------- host ----------
 function startHost(code){
-  isHost = true; setStatus('Creating room…');
+  isHost = true; setStatus('Starting a room…');
   peer = new Peer(PREFIX + code);
   peer.on('open', id => {
     myId = id;
     people[id] = { id, name: myName(), color: COLORS[0] };
     enterRoom(code);
-    sys('Room created. Share the code ' + code + ' with your friends.');
+    sys('Room ' + code + ' is ready. Click the code at the top to copy an invite link.');
   });
   peer.on('connection', conn => {
     conn.on('open', () => conns.set(conn.peer, conn));
@@ -292,7 +381,7 @@ function startGuest(code){
     hostConn = peer.connect(PREFIX + code, { reliable:true });
     hostConn.on('open', () => { hostConn.send({ type:'hello', name: myName() }); enterRoom(code); });
     hostConn.on('data', d => onData(d, PREFIX + code));
-    hostConn.on('close', () => { alert('The host left, so the room has closed.'); location.reload(); });
+    hostConn.on('close', () => { alert('The host left, so this room has closed.'); location.reload(); });
   });
   peer.on('call', answerCall);
   peer.on('error', e => { if (!roomCode) handleErr(e); });
@@ -326,7 +415,7 @@ function olderThan(a, b){
 }
 function scriptOutdated(){ return hasBridge && (!bridgeVersion || olderThan(bridgeVersion, NEEDED_SCRIPT)); }
 function hostId(){ return PREFIX + roomCode; }
-// Allowed: the host, the tab's owner, or anyone while Guest control is on.
+// Allowed: the host, the tab's owner, or anyone while "Let friends control" is on.
 function mayControl(from){ return control || from === hostId() || from === myId; }
 function forwardToBridge(msg, ok){
   if (hasBridge && ok) window.postMessage({ bt:'in', key:bridgeKey, msg }, '*');
@@ -346,7 +435,7 @@ window.addEventListener('message', e => {
   if (typeof e.data.key !== 'string' || !e.data.key) return;
   const first = !hasBridge;
   bridgeKeys.add(e.data.key);
-  if (bridgeKeys.size === 2) sys('⚠️ The control script is installed more than once in Tampermonkey. Open the Tampermonkey dashboard, delete the extra copies, then reload this page and the shared tab.');
+  if (bridgeKeys.size === 2) sys('Tab control is installed more than once in Tampermonkey. Open the Tampermonkey dashboard, delete the extra copies, then reload this page and the shared tab.');
   bridgeKey = e.data.key; hasBridge = true;
   bridgeVersion = typeof e.data.version === 'string' ? e.data.version.slice(0, 20) : '';
   pushBridgeState();
@@ -449,11 +538,11 @@ function apply(msg){
     }
     case 'clear':
       setStrokes(strokes.filter(x => x.mode !== msg.mode));
-      sys(nameOf(msg.from) + ' cleared the drawings.');
+      sys(nameOf(msg.from) + ' cleared all drawings.');
       break;
     case 'control':
       control = !!msg.on; updateControlUI();
-      sys(control ? '🎮 Guest control is on: click the shared picture to use the tab.' : '🎮 Guest control is off.');
+      sys(control ? 'Everyone can now control the shared tab. Click the view to use it.' : 'Only the host can control the shared tab now.');
       break;
   }
 }
@@ -472,8 +561,7 @@ function hasTab(){ return Object.values(people).some(p => p.bridge || p.kind ===
 function updateControlUI(){
   const b = $('#controlBtn');
   b.hidden = !isHost;
-  b.textContent = '🎮 Guest control: ' + (control ? 'On' : 'Off');
-  b.classList.toggle('on', control);
+  b.setAttribute('aria-checked', String(control));
   overlay.classList.toggle('ctl', control || isHost || hasBridge);
   pushBridgeState();
   updateShareUI();
@@ -485,15 +573,21 @@ function renderPeople(){
     const chip = document.createElement('span'); chip.className = 'chip';
     const dot = document.createElement('span'); dot.className = 'dot'; dot.style.background = p.color;
     const t = document.createElement('span');
-    t.textContent = (p.kind === 'tab' ? '🖱 ' : '') + p.name + (p.id === myId ? ' (you)' : '') + (p.id === sharer ? ' 📺' : '') + (p.bridge ? ' 🎮' : '') + (p.id.startsWith(PREFIX) ? ' ★' : '');
-    chip.append(dot, t); box.append(chip);
+    t.textContent = p.name + (p.id === myId ? ' (you)' : '');
+    chip.append(dot, t);
+    const tag = (text, cls, title) => { const g = document.createElement('span'); g.className = 'tag' + (cls ? ' ' + cls : ''); g.textContent = text; if (title) g.title = title; chip.append(g); };
+    if (p.id.startsWith(PREFIX)) tag('host', '', 'Started the room');
+    if (p.id === sharer) tag('sharing', 'live', 'Their tab is on screen');
+    if (p.bridge) tag('tab control', '', 'Has tab control set up');
+    box.append(chip);
   }
 }
 $('#copyBtn').onclick = async () => {
   const text = location.protocol.startsWith('http') ? location.href.split('#')[0] + '#' + roomCode : roomCode;
-  try { await navigator.clipboard.writeText(text); $('#copyBtn').textContent = 'Copied!'; }
-  catch(e){ prompt('Copy this:', text); }
-  setTimeout(() => $('#copyBtn').textContent = 'Copy invite', 1500);
+  const hint = $('#copyBtn .hint');
+  try { await navigator.clipboard.writeText(text); hint.textContent = 'Link copied'; }
+  catch(e){ prompt('Copy this invite link:', text); }
+  setTimeout(() => hint.textContent = 'Copy invite link', 1600);
 };
 document.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => send({ type:'mode', mode:b.dataset.mode }));
 
@@ -511,15 +605,18 @@ function setMode(m){
   redraw();
 }
 function updatePlaceholder(){
-  let text = '';
+  let title = '', text = '';
   if (mode === 'screen' && !video.srcObject){
+    title = 'Nobody is sharing yet';
     text = navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia
-      ? 'Nobody is sharing yet. Click "Share a tab" and pick the browser tab everyone should see. In Chrome or Edge, choose the "Tab" option and tick "Share tab audio" so friends hear videos too.'
-      : 'Nobody is sharing yet. (Your browser cannot share its screen — try Chrome, Edge or Firefox on a computer. You can still watch.)';
+      ? 'Click Share my tab and pick the tab everyone should see. Tick "Share tab audio" so friends hear it too.'
+      : 'This browser can\'t share a tab, but you can watch when someone else shares. To share, use Chrome, Edge or Firefox on a computer.';
   } else if (mode === 'page' && !curUrl){
-    text = 'Type a website above and press "Go for everyone". YouTube links and Wikipedia work well. Many big sites refuse to load inside another page — use Screen share for those.';
+    title = 'Load a site for everyone';
+    text = 'Paste a link above. YouTube and Wikipedia work well. Sites like X and Instagram block this, so share a tab for those instead.';
   }
-  $('#placeholder').hidden = !text;
+  $('#placeholder').hidden = !title;
+  $('#phTitle').textContent = title;
   $('#phText').textContent = text;
 }
 
@@ -528,24 +625,32 @@ function updateShareUI(){
   const btn = $('#shareBtn');
   const can = !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia);
   btn.disabled = !can;
-  btn.textContent = localStream ? 'Stop sharing' : (sharer && sharer !== myId ? 'Take over sharing' : 'Share a tab');
-  btn.classList.toggle('ghost', !!localStream);
-  let info = sharer
-    ? (sharer === myId ? 'Everyone sees what you share. Their pointers appear on your preview here.' : nameOf(sharer) + ' is sharing. Click on the picture to point things out.')
-    : '';
-  if (bridgeKeys.size > 1) info = '⚠️ Control script installed twice: delete the extra copy in Tampermonkey. ' + info;
-  if (scriptOutdated()) info = '⚠️ Your control script is outdated, so opening sites won\'t work. Click "Update control script". ' + info;
-  else if (hasBridge) info += ' ✅ Control script v' + bridgeVersion + ' found.';
-  $('#scriptLink').hidden = hasBridge && !scriptOutdated();
-  $('#scriptLink').textContent = scriptOutdated() ? '⚠️ Update control script' : '🧩 Get control script';
+  btn.querySelector('.lbl').textContent = localStream ? 'Stop sharing' : (sharer && sharer !== myId ? 'Share my tab instead' : 'Share my tab');
+  btn.querySelector('use').setAttribute('href', localStream ? '#i-stop' : '#i-share');
+  btn.classList.toggle('primary', !localStream);
+
+  // One short line per fact, most important first.
+  const notes = [];
+  if (scriptOutdated()) notes.push(['warn', 'Tab control is out of date, so opening sites won\'t work. Click Update tab control.']);
+  if (bridgeKeys.size > 1) notes.push(['warn', 'Tab control is installed twice. Remove the extra copy in Tampermonkey.']);
+  if (sharer === myId) notes.push(['', 'You\'re sharing your tab. Friends\' pointers show on your preview.']);
+  else if (sharer) notes.push(['', nameOf(sharer) + ' is sharing. Click the view to point at things.']);
   if (hasTab()){
-    if (control) info += ' 🎮 Everyone can control: click the picture, then use mouse, wheel and keyboard.';
-    else if (isHost) info += ' 🎮 You can control the tab: click the picture. Guests can\'t until you turn on Guest control.';
+    if (control) notes.push(['', 'Everyone can click, scroll and type in the shared tab.']);
+    else if (isHost) notes.push(['', 'Only you can control the shared tab.']);
   } else if (control){
-    info += ' 🎮 Control is on, but nobody has the Tampermonkey control script running yet.';
+    notes.push(['warn', 'Friends can control, but nobody has tab control set up yet.']);
   }
-  $('#shareInfo').textContent = info;
-  $('#shareInfo').title = info;
+  if (hasBridge && !scriptOutdated()) notes.push(['ok', 'Tab control ready (v' + bridgeVersion + ')']);
+  const bar = $('#shareInfo'); bar.textContent = '';
+  for (const [cls, text] of notes){ const n = document.createElement('span'); if (cls) n.className = cls; n.textContent = text; bar.append(n); }
+  bar.style.display = 'contents';
+  $('#statusbar').hidden = !notes.length;
+
+  const link = $('#scriptLink');
+  link.hidden = hasBridge && !scriptOutdated();
+  link.classList.toggle('warn', scriptOutdated());
+  link.querySelector('.lbl').textContent = scriptOutdated() ? 'Update tab control' : 'Set up tab control';
   $('#navForm').hidden = !canNavigate();
 }
 $('#shareBtn').onclick = () => localStream ? stopShare(false) : startShare();
@@ -663,7 +768,7 @@ $('#navForm').onsubmit = e => {
   e.preventDefault();
   const url = navUrl($('#navInput').value);
   if (!url || !canNavigate()) return;
-  if (scriptOutdated()) return sys('⚠️ Your control script is too old to open sites. Click "Update control script" at the top, then reload this page and the shared tab.');
+  if (scriptOutdated()) return sys('Tab control is out of date, so it can\'t open sites. Click Update tab control at the top, then reload this page and the shared tab.');
   send({ type:'input', t:'nav', url });
   $('#navInput').blur();
   sys('Opening ' + url + ' in the shared tab…');
@@ -845,12 +950,14 @@ canvas.addEventListener('pointermove', e => {
 $('#drawBtn').onclick = () => {
   drawOn = !drawOn;
   $('#drawBtn').classList.toggle('on', drawOn);
+  $('#drawBtn .lbl').textContent = drawOn ? 'Done drawing' : 'Draw';
   canvas.classList.toggle('on', drawOn);
   $('#drawTools').hidden = !drawOn;
 };
 $('#sizeBtn').onclick = () => {
   sizeIdx = (sizeIdx + 1) % SIZES.length;
-  $('#sizeBtn').textContent = '● ' + SIZES[sizeIdx][0];
+  $('#sizeBtn').dataset.size = SIZES[sizeIdx][0];
+  $('#sizeBtn .lbl').textContent = { S:'Thin', M:'Medium', L:'Thick' }[SIZES[sizeIdx][0]];
 };
 $('#undoBtn').onclick = () => {
   for (let i = strokes.length - 1; i >= 0; i--){
@@ -1101,7 +1208,7 @@ function addLine(node){ const log = $('#log'); log.append(node); log.scrollTop =
 function addChat(from, text){
   const p = people[from] || { name:'Someone', color:'#ccc' };
   const d = document.createElement('div'); d.className = 'msg';
-  const b = document.createElement('b'); b.textContent = p.name + ':'; b.style.color = p.color;
+  const b = document.createElement('b'); b.textContent = p.name; b.style.color = p.color;
   d.append(b, document.createTextNode(text)); addLine(d);
 }
 function sys(text){ const d = document.createElement('div'); d.className = 'sys'; d.textContent = text; addLine(d); }
