@@ -117,6 +117,7 @@ a{color:var(--peri)}
 /* Volume */
 .vol{display:flex;align-items:center;gap:2px}
 #volSlider{width:110px;height:20px;margin:0 6px 0 0;accent-color:var(--gold);cursor:pointer;background:transparent}
+#volSlider:disabled{cursor:not-allowed;opacity:.45}
 #sizeBtn[data-size="S"] .pen{--s:4px} #sizeBtn[data-size="M"] .pen{--s:8px} #sizeBtn[data-size="L"] .pen{--s:13px}
 
 #stage{grid-column:1;min-width:0;min-height:0;position:relative;background:var(--stage);overflow:hidden}
@@ -274,7 +275,7 @@ aside{grid-column:2;grid-row:2/5;min-height:0;min-width:0;display:flex;flex-dire
         <button class="btn icon" id="undoBtn" title="Undo your last line (Ctrl+Z)" aria-label="Undo"><svg class="ic"><use href="#i-undo"/></svg></button>
         <button class="btn icon" id="clearBtn" title="Clear all drawings for everyone" aria-label="Clear drawings"><svg class="ic"><use href="#i-trash"/></svg></button>
       </div>
-      <div class="vol" id="volume" hidden>
+      <div class="vol" id="volume">
         <button class="btn icon quiet" id="muteBtn" title="Mute" aria-label="Mute"><svg class="ic"><use href="#i-sound"/></svg></button>
         <input type="range" id="volSlider" min="0" max="1" step="0.01" value="1" aria-label="Volume" title="Volume">
       </div>
@@ -800,49 +801,65 @@ function answerCall(call){
 }
 function showStream(stream, isLocal){
   video.srcObject = stream;
-  video.muted = isLocal;            // never play your own tab back to yourself
-  if (!isLocal) video.volume = volumeLevel;
+  // Never play your own tab back to yourself; for others' tabs use your volume.
+  if (isLocal) video.muted = true;
+  else { video.volume = volumeLevel; video.muted = userMuted; }
   $('#unmute').hidden = true;
-  video.play().catch(() => { video.muted = true; video.play().catch(()=>{}); $('#unmute').hidden = isLocal; });
+  video.play().catch(() => { video.muted = true; video.play().catch(()=>{}); $('#unmute').hidden = isLocal || userMuted; });
   updatePlaceholder();
   updateVolumeUI();
 }
 function clearVideo(){ video.srcObject = null; $('#unmute').hidden = true; updatePlaceholder(); updateVolumeUI(); }
-$('#unmute').onclick = () => { video.muted = false; if (!video.volume) video.volume = volumeLevel || 0.5; video.play(); $('#unmute').hidden = true; };
+$('#unmute').onclick = () => {
+  userMuted = false; if (!volumeLevel) volumeLevel = 0.5; saveVolume(); applyVolume();
+  video.play().catch(()=>{}); $('#unmute').hidden = true;
+};
 
-// ---------- volume (only for people watching someone else's tab) ----------
-let volumeLevel = 1;
-try { const v = parseFloat(localStorage.getItem('bt-volume')); if (v >= 0 && v <= 1) volumeLevel = v; } catch(e){}
-function updateVolumeUI(){
-  const watching = !!video.srcObject && !localStream;
-  $('#volume').hidden = !watching;
-  if (!watching) return;
-  const silent = video.muted || video.volume === 0;
-  $('#volSlider').value = silent ? 0 : video.volume;
-  $('#muteBtn use').setAttribute('href', silent ? '#i-mute' : '#i-sound');
-  $('#muteBtn').title = silent ? 'Unmute' : 'Mute';
-  $('#muteBtn').setAttribute('aria-label', silent ? 'Unmute' : 'Mute');
+// ---------- volume (always shown; applies to the tab you're watching) ----------
+let volumeLevel = 1, userMuted = false;
+try {
+  const v = parseFloat(localStorage.getItem('bt-volume')); if (v >= 0 && v <= 1) volumeLevel = v;
+  userMuted = localStorage.getItem('bt-muted') === '1';
+} catch(e){}
+function saveVolume(){
+  try { localStorage.setItem('bt-volume', String(volumeLevel)); localStorage.setItem('bt-muted', userMuted ? '1' : '0'); } catch(e){}
 }
-function rememberVolume(v){ volumeLevel = v; try { localStorage.setItem('bt-volume', String(v)); } catch(e){} }
+function watchingOthers(){ return !!video.srcObject && !localStream; }
+function applyVolume(){
+  if (!watchingOthers()) return;
+  video.volume = volumeLevel;
+  video.muted = userMuted || volumeLevel === 0;
+}
+function updateVolumeUI(){
+  const own = !!localStream;
+  const slider = $('#volSlider'), btn = $('#muteBtn');
+  slider.disabled = btn.disabled = own;
+  // While watching, show what's actually playing (the browser may have started it muted).
+  const silent = watchingOthers() ? (video.muted || video.volume === 0) : (userMuted || volumeLevel === 0);
+  slider.value = (userMuted || volumeLevel === 0) ? 0 : volumeLevel;
+  $('#muteBtn use').setAttribute('href', silent ? '#i-mute' : '#i-sound');
+  const label = own ? 'Your own tab plays its sound itself, so it\'s muted here to avoid an echo'
+              : silent ? 'Unmute' : 'Mute';
+  btn.title = label; btn.setAttribute('aria-label', own ? 'Volume (not used while you share)' : label);
+  slider.title = own ? label : 'Volume';
+}
 $('#volSlider').addEventListener('input', e => {
   const v = Number(e.target.value);
-  video.volume = v;
-  video.muted = v === 0;
-  if (v > 0){ rememberVolume(v); $('#unmute').hidden = true; video.play().catch(()=>{}); }
+  if (v > 0){ volumeLevel = v; userMuted = false; } else { userMuted = true; }
+  saveVolume(); applyVolume();
+  if (v > 0 && watchingOthers()){ $('#unmute').hidden = true; video.play().catch(()=>{}); }
   updateVolumeUI();
 });
 $('#muteBtn').onclick = () => {
-  if (video.muted || video.volume === 0){
-    video.muted = false;
-    if (video.volume === 0) video.volume = volumeLevel || 0.5;
-    $('#unmute').hidden = true;
-    video.play().catch(()=>{});
-  } else {
-    video.muted = true;
-  }
+  const silent = watchingOthers() ? (video.muted || video.volume === 0) : (userMuted || volumeLevel === 0);
+  if (silent){ userMuted = false; if (!volumeLevel) volumeLevel = 0.5; }
+  else userMuted = true;
+  saveVolume(); applyVolume();
+  if (!userMuted && watchingOthers()){ $('#unmute').hidden = true; video.play().catch(()=>{}); }
   updateVolumeUI();
 };
 video.addEventListener('volumechange', updateVolumeUI);
+updateVolumeUI();
 
 // ---------- shared page ----------
 function safeUrl(u){
