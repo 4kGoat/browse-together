@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Browse Together – Tab Control
 // @namespace    browse-together
-// @version      2.4.1
+// @version      2.5.0
 // @homepageURL  https://github.com/4kGoat/browse-together
 // @updateURL    https://raw.githubusercontent.com/4kGoat/browse-together/main/browse-together-control.user.js
 // @downloadURL  https://raw.githubusercontent.com/4kGoat/browse-together/main/browse-together-control.user.js
@@ -56,52 +56,73 @@ declare function GM_addValueChangeListener(
   const live = (): boolean => Date.now() - lastBeat < 6000;
 
   // ---------------------------------------------------------------- badge
+  type BadgeState = 'wait' | 'on' | 'off' | 'err' | 'offer';
+  interface BadgeAction { label: string; primary?: boolean; run: () => void }
   let badgeHost: HTMLDivElement | null = null;
   let badgeBox: HTMLDivElement | null = null;
   let badgeText: HTMLSpanElement | null = null;
-  let useBtn: HTMLButtonElement | null = null;
+  let badgeActions: HTMLSpanElement | null = null;
 
   function ensureBadge(): void {
     if (badgeHost) return;
     badgeHost = document.createElement('div');
-    badgeHost.style.cssText = 'position:fixed;right:12px;bottom:12px;z-index:2147483647;';
+    badgeHost.style.cssText = 'position:fixed;right:14px;bottom:14px;z-index:2147483647;';
     const root = badgeHost.attachShadow({ mode: 'open' });
     const style = document.createElement('style');
     style.textContent = `
-      .b{display:flex;align-items:center;gap:8px;font:600 12px system-ui,sans-serif;color:#e6eef6;
-         background:#16202bee;border:1px solid #2a3a4c;border-radius:10px;padding:6px 8px 6px 10px;
-         box-shadow:0 4px 16px #0006}
-      .d{width:8px;height:8px;border-radius:50%;background:#ffd93d}
-      .on .d{background:#6bcb77} .err .d{background:#ff6b6b}
-      button[hidden]{display:none}
-      button{font:inherit;background:#2a3a4c;color:inherit;border:0;border-radius:6px;padding:3px 8px;cursor:pointer}`;
+      .b{display:flex;align-items:center;gap:10px;max-width:min(440px,calc(100vw - 28px));
+         font:600 13px/1.35 Figtree,system-ui,-apple-system,'Segoe UI',sans-serif;color:#efeaff;
+         background:#231e31f2;border:1px solid #3a3252;border-radius:12px;padding:8px 8px 8px 12px;
+         box-shadow:0 8px 28px #0008}
+      .d{width:9px;height:9px;border-radius:50%;background:#a49bbf;flex:none}
+      .on .d{background:#83dba8} .err .d{background:#ff6f7d} .wait .d{background:#ffc24b}
+      .offer{border-color:#ffc24b;padding:10px 10px 10px 14px}
+      .offer .d{background:#ffc24b;box-shadow:0 0 0 4px #ffc24b33}
+      .t{flex:1}
+      .a{display:flex;gap:6px;flex:none}
+      button{font:inherit;font-size:12.5px;background:#2c2640;color:inherit;border:1px solid #3a3252;border-radius:8px;padding:5px 10px;cursor:pointer}
+      button:hover{background:#3a3254}
+      button.p{background:#ffc24b;border-color:#ffc24b;color:#2b1d00}
+      button.p:hover{background:#ffd27a}
+      button:focus-visible{outline:2px solid #93a5ff;outline-offset:2px}
+      @media (prefers-reduced-motion:no-preference){.offer{animation:pop .25s ease-out}}
+      @keyframes pop{from{transform:translateY(8px);opacity:0}to{transform:none;opacity:1}}`;
     badgeBox = document.createElement('div');
+    badgeBox.setAttribute('role', 'status');
     const dot = document.createElement('span'); dot.className = 'd';
-    badgeText = document.createElement('span');
-    useBtn = document.createElement('button'); useBtn.textContent = 'Use this tab'; useBtn.hidden = true;
-    useBtn.addEventListener('click', () => choose());
-    const stopBtn = document.createElement('button'); stopBtn.textContent = 'Stop';
-    stopBtn.addEventListener('click', stop);
-    badgeBox.append(dot, badgeText, useBtn, stopBtn);
+    badgeText = document.createElement('span'); badgeText.className = 't';
+    badgeActions = document.createElement('span'); badgeActions.className = 'a';
+    badgeBox.append(dot, badgeText, badgeActions);
     root.append(style, badgeBox);
     document.documentElement.appendChild(badgeHost);
   }
-  function setBadge(text: string, state: 'wait' | 'on' | 'off' | 'err'): void {
+  function setBadge(text: string, state: BadgeState, actions: BadgeAction[] = [{ label: 'Stop', run: stop }]): void {
     ensureBadge();
+    const changed = badgeBox!.className !== 'b ' + state;
     badgeText!.textContent = text;
     badgeBox!.className = 'b ' + state;
-    useBtn!.hidden = !(myToken && !active);
+    if (changed || badgeActions!.childElementCount !== actions.length) {
+      badgeActions!.textContent = '';
+      for (const act of actions) {
+        const btn = document.createElement('button');
+        btn.textContent = act.label;
+        if (act.primary) btn.className = 'p';
+        btn.addEventListener('click', act.run);
+        badgeActions!.append(btn);
+      }
+    }
   }
   function refreshBadge(): void {
+    if (offer) return;   // the connect prompt stays until answered
     if (!myToken) { removeBadge(); return; }
-    if (!active) setBadge('Another tab is the controlled tab', 'err');
+    if (!active) setBadge('Another tab is the controlled tab', 'err', [{ label: 'Use this tab', primary: true, run: choose }, { label: 'Stop', run: stop }]);
     else if (!live()) setBadge('Waiting for your Browse Together room page…', 'wait');
-    else if (control) setBadge('🎮 Friends can control this tab · room ' + room, 'on');
-    else setBadge('🎮 The host can control this tab · room ' + room, 'on');
+    else if (control) setBadge('Friends can control this tab (room ' + room + ')', 'on');
+    else setBadge('The host can control this tab (room ' + room + ')', 'on');
   }
   function removeBadge(): void {
     badgeHost?.remove();
-    badgeHost = badgeBox = badgeText = useBtn = null;
+    badgeHost = badgeBox = badgeText = badgeActions = null;
   }
 
   // ------------------------------------------------- room page → this tab
@@ -110,6 +131,7 @@ declare function GM_addValueChangeListener(
     if (myToken && GM_getValue('bt-target', '') === myToken) GM_setValue('bt-target', '');
     myToken = '';
     active = false;
+    offer = null;
     removeBadge();
   }
 
@@ -504,12 +526,39 @@ declare function GM_addValueChangeListener(
     GM_setValue('bt-tabinfo', { url: location.href, title: title.slice(0, 200), t: Date.now() });
   }
 
+  // Every tab gets a private ID that only a page *sharing* it can read (Chrome's
+  // Capture Handle). When the room shares this tab it sends the ID back, and this
+  // tab offers to connect: no menu or shortcut needed.
+  const docId = 'bt:' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+  let offer: { room: string } | null = null;
+  let dismissed = false;
+
+  function advertise(): void {
+    const md = navigator.mediaDevices as (MediaDevices & {
+      setCaptureHandleConfig?: (c: { handle: string; exposeOrigin: boolean; permittedOrigins: string[] }) => void;
+    }) | undefined;
+    try { md?.setCaptureHandleConfig?.({ handle: docId, exposeOrigin: false, permittedOrigins: ['*'] }); }
+    catch { /* not supported in this browser */ }
+  }
+  function onOffer(v: unknown): void {
+    if (!v || typeof v !== 'object') return;
+    const o = v as Record<string, unknown>;
+    if (o.handle !== docId || dismissed || Date.now() - (Number(o.t) || 0) > 30000) return;
+    if (myToken && active) return;   // already connected
+    offer = { room: String(o.room || '').slice(0, 12) };
+    setBadge('You\'re sharing this tab' + (offer.room ? ' in room ' + offer.room : '') + '. Let the room control it?', 'offer', [
+      { label: 'Connect', primary: true, run: () => { offer = null; choose(); } },
+      { label: 'Not now', run: () => { offer = null; dismissed = true; refreshBadge(); } },
+    ]);
+  }
+
   function choose(): void {
     myToken = myToken || Math.random().toString(36).slice(2) + Date.now().toString(36);
     GM_saveTab({ token: myToken });
     GM_setValue('bt-target', myToken);   // only one controlled tab at a time
     active = true;
     readState(GM_getValue<unknown>('bt-state', null));
+    offer = null;
     refreshBadge();
     lastReported = '';
     reportTab();
@@ -532,6 +581,8 @@ declare function GM_addValueChangeListener(
     });
     GM_addValueChangeListener('bt-state', (_n, _o, v) => { readState(v); if (myToken) refreshBadge(); });
     GM_addValueChangeListener('bt-input', (_n, _o, v) => onInputBatch(v));
+    GM_addValueChangeListener('bt-offer', (_n, _o, v) => onOffer(v));
+    advertise();
     setInterval(() => { if (myToken) refreshBadge(); }, 3000);
     setInterval(reportTab, 1000);
 
@@ -575,6 +626,11 @@ declare function GM_addValueChangeListener(
       const d = e.data as Record<string, unknown>;
       if (d.bt === 'ping') { ready(); return; }
       if (d.key !== key) return;
+      if (d.bt === 'offer') {
+        if (typeof d.handle === 'string' && d.handle.startsWith('bt:') && d.handle.length < 80)
+          GM_setValue('bt-offer', { handle: d.handle, room: String(d.room || '').slice(0, 12), t: Date.now() });
+        return;
+      }
       if (d.bt === 'state') {
         GM_setValue('bt-state', { room: String(d.room || ''), control: !!d.control, t: Date.now() });
       } else if (d.bt === 'in') {

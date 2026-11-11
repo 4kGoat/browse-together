@@ -659,12 +659,26 @@ async function startShare(){
   try {
     localStream = await navigator.mediaDevices.getDisplayMedia({ video:{ frameRate:30 }, audio:true });
   } catch(e){ return; }
-  localStream.getVideoTracks()[0].addEventListener('ended', () => stopShare(false));
+  const track = localStream.getVideoTracks()[0];
+  track.addEventListener('ended', () => stopShare(false));
+  offerControl(track);
+  // The shared tab gets a new ID whenever it loads a new page.
+  track.addEventListener('capturehandlechange', () => offerControl(track));
   showStream(localStream, true);
   send({ type:'share', on:true });
   if (mode !== 'screen') send({ type:'mode', mode:'screen' });
   for (const id in people) if (id !== myId && !isTab(id)) callPeer(id);
   updateShareUI();
+}
+// If the shared tab runs the control script, ask it (via our own script) to
+// show a "Connect" prompt so the person can link it with one click.
+function offerControl(track){
+  let h = null;
+  try { h = track.getCaptureHandle ? track.getCaptureHandle() : null; } catch(e){}
+  const handle = h && typeof h.handle === 'string' ? h.handle : '';
+  if (handle.startsWith('bt:') && hasBridge){
+    window.postMessage({ bt:'offer', key:bridgeKey, handle, room:roomCode }, '*');
+  }
 }
 function callPeer(id){
   if (!localStream) return;

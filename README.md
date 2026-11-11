@@ -20,8 +20,8 @@ Friends don't need anything extra. Only the person whose tab is shared needs thi
 
 1. Install [Tampermonkey](https://www.tampermonkey.net/). On newer Chrome, also turn on **Allow User Scripts** in Tampermonkey's extension details.
 2. Set up tab control: open [browse-together-control.user.js](https://raw.githubusercontent.com/4kGoat/browse-together/main/browse-together-control.user.js) and click **Install**. It updates itself from this repo.
-3. Keep the room page open. In the tab you want to share, open the Tampermonkey menu and choose **Let my room control this tab** (or press **Alt+Shift+B** in that tab).
-4. Share that tab. The host can always click, scroll, type and open sites from the room. Turn on **Let friends control** to let everyone else do it too.
+3. Keep the room page open and click **Share my tab**. The tab you share shows a popup in its bottom-right corner: click **Connect**. (If it doesn't appear, open the Tampermonkey menu in that tab and choose **Let my room control this tab**, or press **Alt+Shift+B** there.)
+4. The host can always click, scroll, type and open sites from the room. Turn on **Let friends control** to let everyone else do it too.
 
 Friends act as you in the controlled tab, so only share a tab (or browser profile) you're happy for them to click around in.
 
