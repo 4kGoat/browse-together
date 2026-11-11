@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Browse Together – Tab Control
 // @namespace    browse-together
-// @version      2.5.1
+// @version      2.6.0
 // @homepageURL  https://github.com/4kGoat/browse-together
 // @updateURL    https://raw.githubusercontent.com/4kGoat/browse-together/main/browse-together-control.user.js
 // @downloadURL  https://raw.githubusercontent.com/4kGoat/browse-together/main/browse-together-control.user.js
@@ -540,13 +540,33 @@ declare function GM_addValueChangeListener(
     try { md?.setCaptureHandleConfig?.({ handle: docId, exposeOrigin: false, permittedOrigins: ['*'] }); }
     catch { /* not supported in this browser */ }
   }
+  // "any" offers come when the room can't tell exactly which tab is shared.
+  // Chrome switches to the shared tab right after you pick it, so only a tab
+  // that is in front and focused within a few seconds asks.
+  let guess: { room: string; until: number } | null = null;
   function onOffer(v: unknown): void {
     if (!v || typeof v !== 'object') return;
     const o = v as Record<string, unknown>;
-    if (o.handle !== docId || dismissed || Date.now() - (Number(o.t) || 0) > 30000) return;
+    if (dismissed || Date.now() - (Number(o.t) || 0) > 30000) return;
     if (myToken && active) return;   // already connected
-    offer = { room: String(o.room || '').slice(0, 12) };
-    setBadge('You\'re sharing this tab' + (offer.room ? ' in room ' + offer.room : '') + '. Let the room control it?', 'offer', [
+    const roomCode = String(o.room || '').slice(0, 12);
+    if (o.any === true) { guess = { room: roomCode, until: Date.now() + 5000 }; tryGuess(); return; }
+    if (o.handle !== docId) return;
+    showOffer(roomCode, false);
+  }
+  function tryGuess(): void {
+    if (!guess) return;
+    if (Date.now() > guess.until) { guess = null; return; }
+    if (document.visibilityState !== 'visible' || !document.hasFocus()) return;
+    if (dismissed || (myToken && active)) { guess = null; return; }
+    const r = guess.room; guess = null;
+    showOffer(r, true);
+  }
+  function showOffer(roomCode: string, unsure: boolean): void {
+    offer = { room: roomCode };
+    const where = roomCode ? ' in room ' + roomCode : '';
+    setBadge(unsure ? 'Is this the tab you\'re sharing' + where + '? Let the room control it?'
+                    : 'You\'re sharing this tab' + where + '. Let the room control it?', 'offer', [
       { label: 'Connect', primary: true, run: () => { offer = null; choose(); } },
       { label: 'Not now', run: () => { offer = null; dismissed = true; GM_saveTab({ notNow: true }); refreshBadge(); } },
     ]);
@@ -582,6 +602,8 @@ declare function GM_addValueChangeListener(
     GM_addValueChangeListener('bt-state', (_n, _o, v) => { readState(v); if (myToken) refreshBadge(); });
     GM_addValueChangeListener('bt-input', (_n, _o, v) => onInputBatch(v));
     GM_addValueChangeListener('bt-offer', (_n, _o, v) => onOffer(v));
+    window.addEventListener('focus', tryGuess);
+    document.addEventListener('visibilitychange', tryGuess);
     setInterval(() => { if (myToken) refreshBadge(); }, 3000);
     setInterval(reportTab, 1000);
 
@@ -630,8 +652,11 @@ declare function GM_addValueChangeListener(
       if (d.bt === 'ping') { ready(); return; }
       if (d.key !== key) return;
       if (d.bt === 'offer') {
-        if (typeof d.handle === 'string' && d.handle.startsWith('bt:') && d.handle.length < 80)
-          GM_setValue('bt-offer', { handle: d.handle, room: String(d.room || '').slice(0, 12), t: Date.now() });
+        const roomCode = String(d.room || '').slice(0, 12);
+        if (d.any === true)
+          GM_setValue('bt-offer', { any: true, room: roomCode, t: Date.now() });
+        else if (typeof d.handle === 'string' && d.handle.startsWith('bt:') && d.handle.length < 80)
+          GM_setValue('bt-offer', { handle: d.handle, room: roomCode, t: Date.now() });
         return;
       }
       if (d.bt === 'state') {

@@ -123,10 +123,15 @@ a{color:var(--peri)}
 #stage{grid-column:1;min-width:0;min-height:0;position:relative;background:var(--stage);overflow:hidden}
 #video{width:100%;height:100%;object-fit:contain;display:block}
 #frame{width:100%;height:100%;border:0;background:#fff;display:block}
-#placeholder{position:absolute;inset:0;display:grid;place-items:center;padding:28px;text-align:center}
+#placeholder{position:absolute;inset:0;z-index:6;display:grid;place-items:center;padding:28px;text-align:center;pointer-events:none}
+#placeholder .btn{pointer-events:auto}
 #placeholder .ph{max-width:440px}
 #phTitle{font-family:var(--display);font-weight:700;font-size:26px;letter-spacing:-.015em;line-height:1.15;margin:0 0 10px}
 #phText{color:var(--muted);font-size:15px;margin:0}
+#retryVideo{margin-top:18px}
+#placeholder .spin{display:inline-block;width:14px;height:14px;margin-right:8px;vertical-align:-2px;border:2px solid var(--line);border-top-color:var(--gold);border-radius:50%;animation:spin .9s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){#placeholder .spin{animation:none}}
 #overlay{position:absolute;inset:0;z-index:5;outline:none}
 #overlay.ctl:focus{box-shadow:inset 0 0 0 2px var(--peri)}
 #unmute{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);z-index:9}
@@ -287,7 +292,7 @@ aside{grid-column:2;grid-row:2/5;min-height:0;min-width:0;display:flex;flex-dire
     <video id="video" playsinline autoplay></video>
     <iframe id="frame" hidden allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
       sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-presentation"></iframe>
-    <div id="placeholder"><div class="ph"><h2 id="phTitle"></h2><p id="phText"></p></div></div>
+    <div id="placeholder"><div class="ph"><h2 id="phTitle"></h2><p id="phText"></p><button class="btn primary" id="retryVideo" hidden>Try again</button></div></div>
     <div id="overlay"></div>
     <div id="stickers"></div>
     <canvas id="draw"></canvas>
@@ -319,7 +324,16 @@ const calls = new Map();   // sharer only: peerId -> MediaConnection
 let myId, people = {}, sharer = null, localStream = null;
 let mode = 'screen', curUrl = '', pointMode = false, control = false, hasBridge = false, bridgeKey = '', tabInfo = null, bridgeVersion = '';
 const bridgeKeys = new Set();   // more than one = the script is installed twice
-const NEEDED_SCRIPT = '2.4.0';
+const NAV_SCRIPT = '2.4.0';      // oldest tab-control version that can open sites
+const LATEST_SCRIPT = '2.6.0';   // ask people on older versions to update
+// Servers that help two browsers find a way to each other. The STUN servers
+// work out each side's public address; the TURN servers relay the video when
+// a direct connection isn't possible (some home, school and mobile networks).
+const PEER_OPTS = { config: { iceServers: [
+  { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] },
+  { urls: 'stun:stun.cloudflare.com:3478' },
+  { urls: ['turn:eu-0.turn.peerjs.com:3478', 'turn:us-0.turn.peerjs.com:3478'], username: 'peerjs', credential: 'peerjsp' },
+] } };
 
 const video = $('#video'), frame = $('#frame'), overlay = $('#overlay');
 const canvas = $('#draw'), ctx = canvas.getContext('2d');
@@ -364,7 +378,7 @@ function handleErr(e){
 // ---------- host ----------
 function startHost(code){
   isHost = true; setStatus('Starting a room…');
-  peer = new Peer(PREFIX + code);
+  peer = new Peer(PREFIX + code, PEER_OPTS);
   peer.on('open', id => {
     myId = id;
     people[id] = { id, name: myName(), color: COLORS[0] };
@@ -452,7 +466,7 @@ function dropPerson(id){
 // ---------- guest ----------
 function startGuest(code){
   setStatus('Connecting…');
-  peer = new Peer();
+  peer = new Peer(PEER_OPTS);
   peer.on('open', id => {
     myId = id;
     hostConn = peer.connect(PREFIX + code, { reliable:true });
@@ -513,7 +527,8 @@ function olderThan(a, b){
   for (let i = 0; i < 3; i++){ if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) < (y[i] || 0); }
   return false;
 }
-function scriptOutdated(){ return hasBridge && (!bridgeVersion || olderThan(bridgeVersion, NEEDED_SCRIPT)); }
+function scriptOutdated(){ return hasBridge && (!bridgeVersion || olderThan(bridgeVersion, LATEST_SCRIPT)); }
+function scriptCanNavigate(){ return hasBridge && !!bridgeVersion && !olderThan(bridgeVersion, NAV_SCRIPT); }
 function hostId(){ return PREFIX + roomCode; }
 // Allowed: the host, the tab's owner, or anyone while "Let friends control" is on.
 function mayControl(from){ return control || from === hostId() || from === myId; }
@@ -526,6 +541,7 @@ function pushBridgeState(){
 window.addEventListener('message', e => {
   // The controlled tab reports which page it's on; share that with the room.
   if (e.data && e.data.bt === 'tabinfo' && hasBridge && e.data.key === bridgeKey){
+    if (localStream && !ownTabLinked){ ownTabLinked = true; updateShareUI(); }
     const url = safeUrl(e.data.url);
     if (url && roomCode && (!tabInfo || tabInfo.url !== url || tabInfo.title !== String(e.data.title || '')))
       send({ type:'tabinfo', url, title:String(e.data.title || '').slice(0, 200) });
@@ -576,6 +592,7 @@ function apply(msg){
       updateControlUI(); renderPeople(); setMode(msg.mode || 'screen');
       if (msg.url) loadUrl(msg.url);
       updateShareUI(); sys('You joined the room.');
+      if (sharer && sharer !== myId) expectVideo();
       break;
     case 'people':
       people = msg.people || {};
@@ -588,7 +605,7 @@ function apply(msg){
       if (msg.left){
         if (msg.leftKind !== 'tab') sys((msg.leftName || 'Someone') + ' left.');
         removeCursor(msg.left);
-        if (!sharer && !localStream) clearVideo();
+        if (!sharer && !localStream){ clearTimeout(videoTimer); videoFailed = false; clearVideo(); }
       }
       break;
     case 'chat': addChat(msg.from, String(msg.text || '').slice(0,400)); break;
@@ -603,12 +620,18 @@ function apply(msg){
       if (msg.on){
         if (msg.from !== myId && localStream) stopShare(true);  // someone took over
         sharer = msg.from;
-        if (msg.from !== myId) sys(nameOf(msg.from) + ' started sharing.');
+        if (msg.from !== myId){ sys(nameOf(msg.from) + ' started sharing.'); if (!hasLiveVideo()) clearVideo(); expectVideo(); }
       } else {
         if (sharer === msg.from) sharer = null;
-        if (msg.from !== myId){ clearVideo(); sys(nameOf(msg.from) + ' stopped sharing.'); }
+        if (msg.from !== myId){ clearTimeout(videoTimer); videoFailed = false; clearVideo(); sys(nameOf(msg.from) + ' stopped sharing.'); }
       }
       renderPeople(); updateShareUI();
+      break;
+    case 'needstream':
+      if (msg.to === myId && msg.from !== myId && localStream && people[msg.from]){
+        const old = calls.get(msg.from); if (old){ try { old.close(); } catch(e){} }
+        callPeer(msg.from);
+      }
       break;
     case 'ptr':
       if (msg.from !== myId) drawPointer(msg);
@@ -706,8 +729,19 @@ function setMode(m){
   redraw();
 }
 function updatePlaceholder(){
-  let title = '', text = '';
-  if (mode === 'screen' && !video.srcObject){
+  let title = '', text = '', retry = false, busy = false;
+  if (mode === 'screen' && !video.srcObject && sharer && sharer !== myId){
+    const who = nameOf(sharer);
+    if (videoFailed){
+      title = 'Can\'t get ' + who + '\'s video';
+      text = 'The video couldn\'t get through between your two networks. Try again, or ask ' + who + ' to stop and share again. If it keeps failing, one of you can try another network.';
+      retry = true;
+    } else {
+      title = who + ' is sharing';
+      text = 'Connecting to the video…';
+      busy = true;
+    }
+  } else if (mode === 'screen' && !video.srcObject){
     title = 'Nobody is sharing yet';
     text = navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia
       ? 'Click Share my tab and pick the tab everyone should see. Tick "Share tab audio" so friends hear it too.'
@@ -719,6 +753,8 @@ function updatePlaceholder(){
   $('#placeholder').hidden = !title;
   $('#phTitle').textContent = title;
   $('#phText').textContent = text;
+  if (busy){ const sp = document.createElement('span'); sp.className = 'spin'; $('#phText').prepend(sp); }
+  $('#retryVideo').hidden = !retry;
 }
 
 // ---------- screen share ----------
@@ -732,9 +768,17 @@ function updateShareUI(){
 
   // One short line per fact, most important first.
   const notes = [];
-  if (scriptOutdated()) notes.push(['warn', 'Tab control is out of date, so opening sites won\'t work. Click Update tab control.']);
+  if (scriptOutdated()) notes.push(['warn', 'Tab control is out of date. Click Update tab control, then reload the tab you share.']);
   if (bridgeKeys.size > 1) notes.push(['warn', 'Tab control is installed twice. Remove the extra copy in Tampermonkey.']);
   if (sharer === myId) notes.push(['', 'You\'re sharing your tab. Friends\' pointers show on your preview.']);
+  if (localStream && hasBridge && !ownTabLinked){
+    if (shareSurface && shareSurface !== 'browser')
+      notes.push(['warn', 'You shared a window or screen, so friends can only watch. To let the room control it, share a Chrome tab.']);
+    else if (shareHandleSeen)
+      notes.push(['warn', 'Click Connect in the tab you shared to let the room control it.']);
+    else if (Date.now() - shareStartedAt > 2500)
+      notes.push(['warn', 'No Connect button in the shared tab? Reload that tab, or press Alt+Shift+B in it.']);
+  }
   else if (sharer) notes.push(['', nameOf(sharer) + ' is sharing. Click the view to point at things.']);
   if (hasTab()){
     if (control) notes.push(['', 'Everyone can click, scroll and type in the shared tab.']);
@@ -759,9 +803,19 @@ $('#shareBtn').onclick = () => localStream ? stopShare(false) : startShare();
 
 async function startShare(){
   try {
-    localStream = await navigator.mediaDevices.getDisplayMedia({ video:{ frameRate:30 }, audio:true });
+    localStream = await navigator.mediaDevices.getDisplayMedia({
+      video:{ frameRate:30, displaySurface:'browser' },   // open the picker on the Tabs list
+      audio:true,
+      selfBrowserSurface:'exclude',                       // don't offer the room itself
+      preferCurrentTab:false,
+      surfaceSwitching:'include',                         // Chrome's "Share this tab instead"
+      systemAudio:'exclude',
+    });
   } catch(e){ return; }
   const track = localStream.getVideoTracks()[0];
+  try { shareSurface = track.getSettings().displaySurface || ''; } catch(e){ shareSurface = ''; }
+  shareHandleSeen = false; ownTabLinked = false; shareStartedAt = Date.now();
+  setTimeout(updateShareUI, 3000);
   track.addEventListener('ended', () => stopShare(false));
   offerControl(track);
   // The shared tab gets a new ID whenever it loads a new page.
@@ -774,13 +828,22 @@ async function startShare(){
 }
 // If the shared tab runs the control script, ask it (via our own script) to
 // show a "Connect" prompt so the person can link it with one click.
+let shareSurface = '', shareHandleSeen = false, ownTabLinked = false, shareStartedAt = 0;
 function offerControl(track){
+  if (!hasBridge) return;
   let h = null;
   try { h = track.getCaptureHandle ? track.getCaptureHandle() : null; } catch(e){}
   const handle = h && typeof h.handle === 'string' ? h.handle : '';
-  if (handle.startsWith('bt:') && hasBridge){
+  if (handle.startsWith('bt:')){
+    // We know exactly which tab is shared: only that tab shows Connect.
+    shareHandleSeen = true;
     window.postMessage({ bt:'offer', key:bridgeKey, handle, room:roomCode }, '*');
+  } else if (shareSurface === 'browser'){
+    // We can't tell which tab it is. Chrome switches to the shared tab right
+    // after you pick it, so the tab that has focus asks instead.
+    window.postMessage({ bt:'offer', key:bridgeKey, any:true, room:roomCode }, '*');
   }
+  updateShareUI();
 }
 function callPeer(id){
   if (!localStream) return;
@@ -797,8 +860,62 @@ function stopShare(silent){
 }
 function answerCall(call){
   call.answer();
-  call.on('stream', s => showStream(s, false));
+  call.on('stream', s => {
+    if (localStream) return;              // I'm sharing; don't swap my preview out
+    clearTimeout(videoTimer); videoTries = 0; videoFailed = false;
+    showStream(s, false);
+  });
+  watchConnection(call);
 }
+
+// ---------- getting the video through (viewers) ----------
+// If the video doesn't arrive, or the connection drops, ask the sharer to call
+// again a couple of times before showing a "Try again" message.
+let videoTimer = 0, videoTries = 0, videoFailed = false;
+function hasLiveVideo(){
+  const s = video.srcObject;
+  return !!s && !localStream && s.getVideoTracks().some(t => t.readyState === 'live');
+}
+function expectVideo(){
+  clearTimeout(videoTimer);
+  videoFailed = false; videoTries = 0;
+  if (sharer && sharer !== myId && !hasLiveVideo()) videoTimer = setTimeout(videoMissing, 8000);
+  updatePlaceholder();
+}
+function videoMissing(){
+  if (!sharer || sharer === myId || hasLiveVideo()) return;
+  if (videoTries < 2){
+    videoTries++;
+    send({ type:'needstream', to:sharer });
+    videoTimer = setTimeout(videoMissing, 10000);
+  } else {
+    videoFailed = true; updatePlaceholder();
+    sys('Couldn\'t get ' + nameOf(sharer) + '\'s video through.');
+  }
+}
+function watchConnection(call){
+  const pc = call.peerConnection; if (!pc) return;
+  let dropTimer = 0;
+  const lost = () => {
+    if (call.peer !== sharer || localStream) return;
+    clearVideo();
+    clearTimeout(videoTimer);
+    videoTimer = setTimeout(videoMissing, 500);
+  };
+  pc.addEventListener('iceconnectionstatechange', () => {
+    const st = pc.iceConnectionState;
+    if (st === 'failed') lost();
+    else if (st === 'disconnected'){ clearTimeout(dropTimer); dropTimer = setTimeout(() => { if (pc.iceConnectionState === 'disconnected') lost(); }, 6000); }
+    else if (st === 'connected' || st === 'completed') clearTimeout(dropTimer);
+  });
+}
+$('#retryVideo').onclick = () => {
+  if (!sharer || sharer === myId) return;
+  videoFailed = false; videoTries = 0;
+  updatePlaceholder();
+  send({ type:'needstream', to:sharer });
+  clearTimeout(videoTimer); videoTimer = setTimeout(videoMissing, 10000);
+};
 function showStream(stream, isLocal){
   video.srcObject = stream;
   // Never play your own tab back to yourself; for others' tabs use your volume.
@@ -943,7 +1060,7 @@ $('#navForm').onsubmit = e => {
   e.preventDefault();
   const url = navUrl($('#navInput').value);
   if (!url || !canNavigate()) return;
-  if (scriptOutdated()) return sys('Tab control is out of date, so it can\'t open sites. Click Update tab control at the top, then reload this page and the shared tab.');
+  if (!scriptCanNavigate()) return sys('Tab control is out of date, so it can\'t open sites. Click Update tab control at the top, then reload this page and the shared tab.');
   send({ type:'input', t:'nav', url });
   $('#navInput').blur();
   sys('Opening ' + url + ' in the shared tab…');

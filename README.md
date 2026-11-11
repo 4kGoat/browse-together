@@ -25,6 +25,12 @@ Friends don't need anything extra. Only the person whose tab is shared needs thi
 
 Friends act as you in the controlled tab, so only share a tab (or browser profile) you're happy for them to click around in.
 
+## If something doesn't work
+
+- **You can't see a friend's tab.** The room retries a few times, then says "Can't get …'s video" with a **Try again** button. If it keeps failing, something between your two networks (a strict router, school or work network, VPN) is blocking the video. Try turning off a VPN, or have one of you switch network (for example a phone hotspot).
+- **No Connect button appears in the tab you share.** Tampermonkey only runs in tabs opened or reloaded after the script was installed or updated, so reload that tab. Also make sure you picked a **Chrome tab**, not a window or your whole screen. You can always press **Alt+Shift+B** in the tab instead.
+- **Tab control says it's out of date.** Click **Update tab control** in the room, then reload the room and the tab you share.
+
 ## How it works
 
 - `index.html` is the whole app. Connections go directly between browsers (WebRTC via [PeerJS](https://peerjs.com/)); there's no server of its own.
